@@ -25,6 +25,8 @@ import argparse, array, datetime as dt, json, math, os, queue, re, shutil, signa
 import subprocess, sys, tempfile, threading, time, urllib.error, urllib.request, uuid, wave
 from pathlib import Path
 
+__version__ = "1.0.0"
+FROZEN = getattr(sys, "frozen", False)   # True inside the packaged .exe / .app
 SR = 16000
 BLOCK_S = 0.25
 BLOCK_BYTES = int(SR * BLOCK_S) * 2
@@ -150,6 +152,11 @@ class SoundcardCapture:
         self.sc, self.source, self.log, self.recs = sc, source, log, []
 
     def start(self):
+        try:  # WASAPI needs COM initialised in the recording thread
+            import ctypes
+            ctypes.windll.ole32.CoInitializeEx(None, 0)
+        except Exception:
+            pass
         sc, frames = self.sc, int(SR * BLOCK_S)
         if self.source in ("both", "system"):
             spk = sc.default_speaker()
@@ -243,6 +250,8 @@ def tilde(p) -> str:
 
 
 def hermes_available() -> bool:
+    if FROZEN:   # packaged builds can't import a Hermes install's Python modules
+        return False
     return (HERMES_SRC / "tools" / "transcription_tools.py").exists()
 
 
@@ -540,6 +549,7 @@ def main():
     ap.add_argument("--outdir", default=str(OUTDIR_DEFAULT))
     ap.add_argument("--max-chunk", type=float, default=15.0)
     ap.add_argument("--stop", action="store_true", help="stop a running livescribe")
+    ap.add_argument("--version", action="version", version=f"livescribe {__version__}")
     a = ap.parse_args()
     if a.stop:
         return stop_running()

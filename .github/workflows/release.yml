@@ -1,0 +1,89 @@
+name: Release builds
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  linux-deb:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build .deb
+        run: sh packaging/build-deb.sh "${GITHUB_REF_NAME#v}"
+      - name: Inspect package
+        run: dpkg-deb --info dist/*.deb && dpkg-deb --contents dist/*.deb | head -40
+      - uses: actions/upload-artifact@v4
+        with: { name: linux, path: dist/*.deb }
+
+  macos-dmg:
+    runs-on: macos-latest   # Apple Silicon
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Build app
+        run: |
+          pip install pyinstaller pywebview pystray pillow pyobjc-framework-Cocoa pyobjc-framework-WebKit
+          pyinstaller --noconfirm --clean packaging/livescribe.spec
+      - name: Self-test
+        run: dist/Livescribe.app/Contents/MacOS/Livescribe --self-test
+      - name: Make .dmg
+        run: |
+          VER="${GITHUB_REF_NAME#v}"; [ "$VER" = "$GITHUB_REF_NAME" ] && VER=dev
+          mkdir dmg && cp -R dist/Livescribe.app dmg/ && ln -s /Applications dmg/Applications
+          hdiutil create -volname Livescribe -srcfolder dmg -ov -format UDZO "dist/Livescribe-${VER}-macos-arm64.dmg"
+      - uses: actions/upload-artifact@v4
+        with: { name: macos, path: dist/*.dmg }
+
+  windows-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Build app
+        shell: bash
+        run: |
+          pip install pyinstaller pywebview pystray pillow soundcard numpy
+          pyinstaller --noconfirm --clean packaging/livescribe.spec
+          mkdir -p build && python -c "from PIL import Image; Image.open('icons/livescribe-512.png').save('build/livescribe.ico', sizes=[(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)])"
+      - name: Self-test
+        shell: pwsh
+        run: |
+          $p = Start-Process dist\Livescribe\Livescribe.exe -ArgumentList '--self-test' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "self-test failed ($($p.ExitCode))" }
+      - name: Make installer
+        shell: pwsh
+        run: |
+          $ver = "$env:GITHUB_REF_NAME".TrimStart('v'); if ($env:GITHUB_REF_TYPE -ne 'tag') { $ver = 'dev' }
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) { choco install innosetup -y --no-progress }
+          $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
+          & $iscc "/DVER=$ver" packaging\livescribe.iss
+          if ($LASTEXITCODE -ne 0) { throw "iscc failed" }
+      - uses: actions/upload-artifact@v4
+        with: { name: windows, path: dist/*.exe }
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [linux-deb, macos-dmg, windows-exe]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { path: out, merge-multiple: true }
+      - name: Checksums
+        run: cd out && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - name: Publish release
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" out/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" out/* --title "Livescribe $GITHUB_REF_NAME" --notes-file packaging/RELEASE_NOTES.md
+          fi

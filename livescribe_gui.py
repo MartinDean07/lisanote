@@ -22,7 +22,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-HERE = Path(__file__).resolve().parent
+FROZEN = getattr(sys, "frozen", False)
+HERE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))   # bundled data dir when packaged
 sys.path.insert(0, str(HERE))
 import livescribe as ls  # noqa: E402
 
@@ -108,7 +109,8 @@ def set_autostart(on: bool):
         return
     p.parent.mkdir(parents=True, exist_ok=True)
     if ls.IS_MAC:
-        args = (["/usr/bin/open", "-a", str(MAC_APP), "--args", "--hidden"] if MAC_APP.exists()
+        bundle = Path(sys.executable).resolve().parents[2] if FROZEN else MAC_APP
+        args = (["/usr/bin/open", "-a", str(bundle), "--args", "--hidden"] if bundle.suffix == ".app" and bundle.exists()
                 else [str(HERE / "livescribe-launch.sh"), "--hidden"])
         items = "".join(f"<string>{a}</string>" for a in args)
         p.write_text('<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" '
@@ -116,6 +118,8 @@ def set_autostart(on: bool):
                      '<key>Label</key><string>no.livescribe.app</string>'
                      f'<key>ProgramArguments</key><array>{items}</array>'
                      '<key>RunAtLoad</key><true/></dict></plist>\n')
+    elif ls.IS_WIN and FROZEN:
+        p.write_text(f'@start "" "{sys.executable}" --hidden\r\n')
     elif ls.IS_WIN:
         pyw = Path(sys.executable).with_name("pythonw.exe")
         p.write_text(f'@start "" "{pyw if pyw.exists() else sys.executable}" "{HERE / "livescribe_gui.py"}" --hidden\r\n')
@@ -370,6 +374,8 @@ def open_window(url, gtk_flags=()) -> subprocess.Popen | None:
         return subprocess.Popen(["/usr/bin/python3", str(HERE / "shell_gtk.py"), url, *gtk_flags])
     try:
         import webview  # noqa: F401  (pywebview: native window on macOS / Windows)
+        if FROZEN:   # packaged app: re-launch ourselves in window mode
+            return subprocess.Popen([sys.executable, "--shell-webview", url])
         return subprocess.Popen([sys.executable, str(HERE / "shell_pywebview.py"), url])
     except ImportError:
         pass
@@ -480,7 +486,34 @@ def run_pystray(hub, url, hidden) -> bool:
     return True
 
 
+def self_test():
+    """Used by the release builds: check that everything the app needs is bundled/installed."""
+    problems = []
+    for f in ("ui.html", "icons/livescribe.svg", "icons/tray-idle.svg"):
+        if not (HERE / f).exists():
+            problems.append(f"missing {f}")
+    try:
+        if ls.IS_MAC or ls.IS_WIN:
+            import webview, pystray  # noqa: F401
+            tray_images()
+        elif not gtk_available():
+            problems.append("GTK/WebKit2 4.1 not available")
+        if ls.IS_WIN:
+            import soundcard, numpy  # noqa: F401
+    except Exception as e:
+        problems.append(f"{type(e).__name__}: {e}")
+    print(f"livescribe {ls.__version__} self-test: " + ("ok" if not problems else "; ".join(problems)), flush=True)
+    sys.exit(1 if problems else 0)
+
+
 def main():
+    if len(sys.argv) > 2 and sys.argv[1] == "--shell-webview":   # child window process (packaged app)
+        import shell_pywebview
+        return shell_pywebview.run(sys.argv[2])
+    if "--self-test" in sys.argv:
+        return self_test()
+    if "--version" in sys.argv:
+        return print(f"livescribe {ls.__version__}")
     hidden = "--hidden" in sys.argv
     info, st = existing_instance()
     if "--toggle" in sys.argv:          # app-menu / dock action: start or stop recording
