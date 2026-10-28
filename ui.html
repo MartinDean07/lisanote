@@ -195,7 +195,7 @@ kbd{font:11px var(--font-latin);padding:1px 5px;border:1px solid var(--line);bor
     <p class="hint">Choose who turns speech into text. Bring your own API key, use Hermes Agent, or run offline.</p>
     <div class="provs" id="provs" role="radiogroup"></div>
     <div class="detail" id="detail"></div>
-    <div class="privacy">🔒 Your key is stored only on this computer (<span id="cfgPath"></span>, readable only by you) and is sent
+    <div class="privacy">🔒 Your key is stored only on this computer, readable only by your user account, and is sent
       only to the provider you pick. Cloud providers receive the audio pieces you record; “Offline” keeps everything on-device.</div>
   </div>
 </section>
@@ -327,7 +327,6 @@ function el(tag, attrs = {}, ...kids){ const e = document.createElement(tag); fo
   kids.flat().forEach(k => e.append(k)); return e; }
 function renderSettings(){
   if (!cfg) return;
-  $('cfgPath').textContent = cfg.config_file;
   selProv = selProv || cfg.provider || 'auto';
   const box = $('provs'); box.innerHTML = '';
   for (const p of provList()){

@@ -62,8 +62,7 @@ def public_config() -> dict:
                       "model": cfg["models"].get(pid) or meta["model"], "has_key": bool(key),
                       "masked": _mask(key), "from_env": bool(key and not cfg["keys"].get(pid))})
     return {"provider": cfg.get("provider", "auto"), "base_url": cfg.get("base_url", ""),
-            "providers": provs, "hermes": ls.hermes_available(), "local": ls.local_available(),
-            "config_file": str(ls.CONFIG_FILE)}
+            "providers": provs, "hermes": ls.hermes_available(), "local": ls.local_available()}
 
 
 def update_config(body: dict):

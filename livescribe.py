@@ -235,6 +235,13 @@ def provider_settings(pid: str, cfg: dict | None = None) -> tuple[str, str, str]
     return provider_key(pid, cfg), base.rstrip("/"), model
 
 
+def tilde(p) -> str:
+    """Show paths as ~/... so messages never reveal the local username or folder layout."""
+    p = str(p)
+    h = str(HOME)
+    return "~" + p[len(h):] if p.startswith(h) else p
+
+
 def hermes_available() -> bool:
     return (HERMES_SRC / "tools" / "transcription_tools.py").exists()
 
@@ -261,7 +268,7 @@ def test_provider(pid: str, key: str = "", base: str = "", model: str = "") -> t
     """Cheap credential check (lists models; no audio is sent, nothing is billed)."""
     if pid == "hermes":
         if not hermes_available():
-            return False, f"Hermes Agent not found at {HERMES_SRC}"
+            return False, f"Hermes Agent not found at {tilde(HERMES_SRC)}"
         try:
             eng = HermesEngine(None, lambda *_: None)
             return True, eng.label
@@ -297,7 +304,7 @@ class HermesEngine:
 
     def __init__(self, lang, log):
         if not hermes_available():
-            raise RuntimeError(f"Hermes Agent not found at {HERMES_SRC}")
+            raise RuntimeError(f"Hermes Agent not found at {tilde(HERMES_SRC)}")
         if lang:  # per-run override; Hermes reads it when stt.language is blank
             os.environ["HERMES_LOCAL_STT_LANGUAGE"] = lang
         if str(HERMES_SRC) not in sys.path:
@@ -463,7 +470,7 @@ class Session:
                     f"engine={self.engine.label}\n\n")
         (self.outdir / ".current").write_text(str(self.path))
         PIDFILE.write_text(str(os.getpid()))
-        self.on_status(f"listening… saving to {self.path}")
+        self.on_status(f"listening… saving to {tilde(self.path)}")
         worker = threading.Thread(target=self._worker, daemon=True)
         worker.start()
         cap.start()
@@ -508,7 +515,7 @@ class Session:
                 except OSError:
                     pass
             shutil.rmtree(self.tmp, ignore_errors=True)
-            self.on_status(f"saved {self.path}")
+            self.on_status(f"saved {tilde(self.path)}")
         return self.path
 
 
@@ -527,7 +534,7 @@ def main():
                     help="system = everything you hear (apps, meetings, headphones); mic = you")
     ap.add_argument("--engine", choices=ENGINE_IDS, default="auto")
     ap.add_argument("--set-key", nargs=2, metavar=("PROVIDER", "KEY"),
-                    help="save an API key, e.g. --set-key openai sk-...  (stored in %s)" % CONFIG_FILE)
+                    help="save an API key, e.g. --set-key openai sk-...  (stored in %s)" % tilde(CONFIG_FILE))
     ap.add_argument("--lang", default=os.environ.get("LIVESCRIBE_LANG"), help="ar, en, no … (default: auto)")
     ap.add_argument("--title", default="session")
     ap.add_argument("--outdir", default=str(OUTDIR_DEFAULT))
