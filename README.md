@@ -29,7 +29,17 @@ saved as Markdown with timestamps. Arabic and other right-to-left languages are 
 - 🗂 Lives in the tray / menu bar, optional start at login
 - 🐧 Linux and 🍎 macOS; 🪟 Windows experimental
 
-## Install
+## Download
+
+Get the latest version from **[Releases](https://github.com/MartinDean07/livescribe/releases/latest)** — no building needed:
+
+| System | File |
+|---|---|
+| 🐧 Linux (Ubuntu, Debian, Mint…) | `livescribe_<version>_all.deb` — double-click, or `sudo apt install ./livescribe_*.deb` |
+| 🍎 macOS (Apple Silicon) | `Livescribe-<version>-macos-arm64.dmg` — drag to Applications; first start: right-click → **Open** |
+| 🪟 Windows 10/11 (experimental) | `Livescribe-<version>-windows-setup.exe` — if SmartScreen warns: **More info → Run anyway** |
+
+## Install from source
 
 ```sh
 git clone https://github.com/MartinDean07/livescribe.git
