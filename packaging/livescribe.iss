@@ -1,18 +1,18 @@
-; Inno Setup script → Livescribe-<ver>-windows-setup.exe   (iscc /DVER=1.0.0 packaging\livescribe.iss)
-#ifndef VER
-  #define VER "1.0.0"
+; Inno Setup script → Livescribe-<ver>-windows-setup.exe   (iscc /DAPPVER=1.0.0 packaging\livescribe.iss)
+#ifndef APPVER
+  #define APPVER "1.0.0"
 #endif
 [Setup]
 AppId={{8C1F2E44-6B0A-4D6C-9E3B-1A7F2C5D9B10}
 AppName=Livescribe
-AppVersion={#VER}
+AppVersion={#APPVER}
 AppPublisher=Livescribe
 AppPublisherURL=https://github.com/MartinDean07/livescribe
 DefaultDirName={localappdata}\Programs\Livescribe
 DefaultGroupName=Livescribe
 PrivilegesRequired=lowest
 OutputDir=..\dist
-OutputBaseFilename=Livescribe-{#VER}-windows-setup
+OutputBaseFilename=Livescribe-{#APPVER}-windows-setup
 SetupIconFile=..\build\livescribe.ico
 UninstallDisplayIcon={app}\Livescribe.exe
 LicenseFile=..\LICENSE

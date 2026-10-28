@@ -14,7 +14,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build .deb
-        run: sh packaging/build-deb.sh "${GITHUB_REF_NAME#v}"
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then sh packaging/build-deb.sh "${GITHUB_REF_NAME#v}"; else sh packaging/build-deb.sh; fi
       - name: Inspect package
         run: dpkg-deb --info dist/*.deb && dpkg-deb --contents dist/*.deb | head -40
       - uses: actions/upload-artifact@v4
@@ -64,7 +65,7 @@ jobs:
           if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) { choco install innosetup -y --no-progress }
           $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
           if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
-          & $iscc "/DVER=$ver" packaging\livescribe.iss
+          & $iscc "/DAPPVER=$ver" packaging\livescribe.iss
           if ($LASTEXITCODE -ne 0) { throw "iscc failed" }
       - uses: actions/upload-artifact@v4
         with: { name: windows, path: dist/*.exe }
