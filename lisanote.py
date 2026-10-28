@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""livescribe — live transcription of everything you hear (videos, meetings, any app,
+"""lisanote — live transcription of everything you hear (videos, meetings, any app,
 including through headphones) and/or your microphone.
 
 Transcription providers (--engine, or choose in the app's Settings):
   openai | groq | mistral | custom — your own API key (pasted in Settings or via env:
-          OPENAI_API_KEY / GROQ_API_KEY / MISTRAL_API_KEY / LIVESCRIBE_API_KEY). Custom = any
+          OPENAI_API_KEY / GROQ_API_KEY / MISTRAL_API_KEY / LISANOTE_API_KEY). Custom = any
           OpenAI-compatible /audio/transcriptions endpoint.
   hermes  — reuse the speech-to-text setup of a local Hermes Agent install.
   local   — offline faster-whisper (pip install faster-whisper).
@@ -16,8 +16,8 @@ Capture:
   macOS   — BlackHole loopback device (brew install blackhole-2ch + Multi-Output Device), see README.
   Windows — WASAPI loopback via the `soundcard` package (experimental).
 
-Usage:  livescribe [--source both|system|mic] [--lang ar] [--title "Team sync"] [--engine openai]
-Stop with Ctrl+C or `livescribe --stop`. Transcripts: ~/Transcripts/<date>_<time>_<title>.md
+Usage:  lisanote [--source both|system|mic] [--lang ar] [--title "Team sync"] [--engine openai]
+Stop with Ctrl+C or `lisanote --stop`. Transcripts: ~/Transcripts/<date>_<time>_<title>.md
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ import argparse, array, datetime as dt, json, math, os, queue, re, shutil, signa
 import subprocess, sys, tempfile, threading, time, urllib.error, urllib.request, uuid, wave
 from pathlib import Path
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 FROZEN = getattr(sys, "frozen", False)   # True inside the packaged .exe / .app
 SR = 16000
 BLOCK_S = 0.25
@@ -34,7 +34,7 @@ HOME = Path.home()
 HERMES_HOME = Path(os.environ.get("HERMES_HOME", HOME / ".hermes"))
 HERMES_SRC = HERMES_HOME / "hermes-agent"
 OUTDIR_DEFAULT = HOME / "Transcripts"
-PIDFILE = HOME / ".livescribe.pid"
+PIDFILE = HOME / ".lisanote.pid"
 IS_MAC, IS_WIN = sys.platform == "darwin", sys.platform.startswith("win")
 
 
@@ -182,8 +182,8 @@ class SoundcardCapture:
 
 # ───────────────────────────── config ─────────────────────────────
 # Settings + API keys live only on this computer, in a file readable by the current user (0600).
-CONFIG_DIR = (Path(os.environ["APPDATA"]) / "Livescribe" if IS_WIN and os.environ.get("APPDATA")
-              else Path(os.environ.get("XDG_CONFIG_HOME", HOME / ".config")) / "livescribe")
+CONFIG_DIR = (Path(os.environ["APPDATA"]) / "Lisanote" if IS_WIN and os.environ.get("APPDATA")
+              else Path(os.environ.get("XDG_CONFIG_HOME", HOME / ".config")) / "lisanote")
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
 # Cloud providers: all speak the OpenAI-compatible POST {base}/audio/transcriptions API.
@@ -198,7 +198,7 @@ PROVIDERS = {
                 "models": ["voxtral-mini-latest"],
                 "env": "MISTRAL_API_KEY", "key_url": "https://console.mistral.ai/api-keys"},
     "custom":  {"label": "Custom (OpenAI-compatible)", "base": "", "model": "whisper-1", "models": [],
-                "env": "LIVESCRIBE_API_KEY", "key_url": ""},
+                "env": "LISANOTE_API_KEY", "key_url": ""},
 }
 ENGINE_IDS = ["auto", "hermes", *PROVIDERS, "local"]
 
@@ -331,7 +331,7 @@ class HermesEngine:
         self._t = transcribe_audio
 
     def transcribe(self, wav: str) -> str:
-        r = self._t(wav, source="livescribe")
+        r = self._t(wav, source="lisanote")
         if not r.get("success"):
             raise RuntimeError(r.get("error") or "transcription failed")
         return (r.get("transcript") or "").strip()
@@ -375,7 +375,7 @@ class LocalEngine:
 
     def __init__(self, lang, log, model=None):
         from faster_whisper import WhisperModel
-        model = model or os.environ.get("LIVESCRIBE_LOCAL_MODEL", "small")
+        model = model or os.environ.get("LISANOTE_LOCAL_MODEL", "small")
         self.m = WhisperModel(model, device="cpu", compute_type="int8",
                               cpu_threads=max(2, (os.cpu_count() or 4) - 2))
         self.lang, self.label = lang, f"Offline · whisper {model}"
@@ -427,14 +427,14 @@ class Session:
         self.source, self.engine_kind, self.lang = source, engine, (lang or None)
         self.title, self.outdir = title or "session", Path(outdir)
         self.on_line = on_line
-        self.on_status = on_status or (lambda s: print(f"[livescribe] {s}", file=sys.stderr, flush=True))
+        self.on_status = on_status or (lambda s: print(f"[lisanote] {s}", file=sys.stderr, flush=True))
         self.min_chunk, self.max_chunk, self.noise = min_chunk, max_chunk, noise
         self._stop = threading.Event()
         self.level = 0.0
         self.busy = False
         self.q: queue.Queue = queue.Queue()
         self.path = None
-        self.tmp = Path(tempfile.mkdtemp(prefix="livescribe-"))
+        self.tmp = Path(tempfile.mkdtemp(prefix="lisanote-"))
 
     def stop(self):
         self._stop.set()
@@ -544,12 +544,12 @@ def main():
     ap.add_argument("--engine", choices=ENGINE_IDS, default="auto")
     ap.add_argument("--set-key", nargs=2, metavar=("PROVIDER", "KEY"),
                     help="save an API key, e.g. --set-key openai sk-...  (stored in %s)" % tilde(CONFIG_FILE))
-    ap.add_argument("--lang", default=os.environ.get("LIVESCRIBE_LANG"), help="ar, en, no … (default: auto)")
+    ap.add_argument("--lang", default=os.environ.get("LISANOTE_LANG"), help="ar, en, no … (default: auto)")
     ap.add_argument("--title", default="session")
     ap.add_argument("--outdir", default=str(OUTDIR_DEFAULT))
     ap.add_argument("--max-chunk", type=float, default=15.0)
-    ap.add_argument("--stop", action="store_true", help="stop a running livescribe")
-    ap.add_argument("--version", action="version", version=f"livescribe {__version__}")
+    ap.add_argument("--stop", action="store_true", help="stop a running lisanote")
+    ap.add_argument("--version", action="version", version=f"lisanote {__version__}")
     a = ap.parse_args()
     if a.stop:
         return stop_running()

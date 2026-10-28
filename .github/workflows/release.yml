@@ -30,14 +30,14 @@ jobs:
       - name: Build app
         run: |
           pip install pyinstaller pywebview pystray pillow pyobjc-framework-Cocoa pyobjc-framework-WebKit
-          pyinstaller --noconfirm --clean packaging/livescribe.spec
+          pyinstaller --noconfirm --clean packaging/lisanote.spec
       - name: Self-test
-        run: dist/Livescribe.app/Contents/MacOS/Livescribe --self-test
+        run: dist/Lisanote.app/Contents/MacOS/Lisanote --self-test
       - name: Make .dmg
         run: |
           VER="${GITHUB_REF_NAME#v}"; [ "$VER" = "$GITHUB_REF_NAME" ] && VER=dev
-          mkdir dmg && cp -R dist/Livescribe.app dmg/ && ln -s /Applications dmg/Applications
-          hdiutil create -volname Livescribe -srcfolder dmg -ov -format UDZO "dist/Livescribe-${VER}-macos-arm64.dmg"
+          mkdir dmg && cp -R dist/Lisanote.app dmg/ && ln -s /Applications dmg/Applications
+          hdiutil create -volname Lisanote -srcfolder dmg -ov -format UDZO "dist/Lisanote-${VER}-macos-arm64.dmg"
       - uses: actions/upload-artifact@v4
         with: { name: macos, path: dist/*.dmg }
 
@@ -51,12 +51,12 @@ jobs:
         shell: bash
         run: |
           pip install pyinstaller pywebview pystray pillow soundcard numpy
-          pyinstaller --noconfirm --clean packaging/livescribe.spec
-          mkdir -p build && python -c "from PIL import Image; Image.open('icons/livescribe-512.png').save('build/livescribe.ico', sizes=[(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)])"
+          pyinstaller --noconfirm --clean packaging/lisanote.spec
+          mkdir -p build && python -c "from PIL import Image; Image.open('icons/lisanote-512.png').save('build/lisanote.ico', sizes=[(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)])"
       - name: Self-test
         shell: pwsh
         run: |
-          $p = Start-Process dist\Livescribe\Livescribe.exe -ArgumentList '--self-test' -Wait -PassThru
+          $p = Start-Process dist\Lisanote\Lisanote.exe -ArgumentList '--self-test' -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "self-test failed ($($p.ExitCode))" }
       - name: Make installer
         shell: pwsh
@@ -65,7 +65,7 @@ jobs:
           if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) { choco install innosetup -y --no-progress }
           $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
           if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
-          & $iscc "/DAPPVER=$ver" packaging\livescribe.iss
+          & $iscc "/DAPPVER=$ver" packaging\lisanote.iss
           if ($LASTEXITCODE -ne 0) { throw "iscc failed" }
       - uses: actions/upload-artifact@v4
         with: { name: windows, path: dist/*.exe }
@@ -86,5 +86,5 @@ jobs:
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" out/* --clobber
           else
-            gh release create "$GITHUB_REF_NAME" out/* --title "Livescribe $GITHUB_REF_NAME" --notes-file packaging/RELEASE_NOTES.md
+            gh release create "$GITHUB_REF_NAME" out/* --title "Lisanote $GITHUB_REF_NAME" --notes-file packaging/RELEASE_NOTES.md
           fi

@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="icons/livescribe-256.png" width="112" alt="Livescribe icon">
+  <img src="icons/lisanote-256.png" width="112" alt="Lisanote icon">
 </p>
 
-<h1 align="center">Livescribe</h1>
+<h1 align="center">Lisanote</h1>
 
 <p align="center"><b>Live transcription of meetings, videos and your mic — in any language.</b><br>
 Bring your own OpenAI / Groq / Mistral key, use Hermes Agent, or run fully offline.</p>
@@ -31,23 +31,23 @@ saved as Markdown with timestamps. Arabic and other right-to-left languages are 
 
 ## Download
 
-Get the latest version from **[Releases](https://github.com/MartinDean07/livescribe/releases/latest)** — no building needed:
+Get the latest version from **[Releases](https://github.com/MartinDean07/lisanote/releases/latest)** — no building needed:
 
 | System | File |
 |---|---|
-| 🐧 Linux (Ubuntu, Debian, Mint…) | `livescribe_<version>_all.deb` — double-click, or `sudo apt install ./livescribe_*.deb` |
-| 🍎 macOS (Apple Silicon) | `Livescribe-<version>-macos-arm64.dmg` — drag to Applications; first start: right-click → **Open** |
-| 🪟 Windows 10/11 (experimental) | `Livescribe-<version>-windows-setup.exe` — if SmartScreen warns: **More info → Run anyway** |
+| 🐧 Linux (Ubuntu, Debian, Mint…) | `lisanote_<version>_all.deb` — double-click, or `sudo apt install ./lisanote_*.deb` |
+| 🍎 macOS (Apple Silicon) | `Lisanote-<version>-macos-arm64.dmg` — drag to Applications; first start: right-click → **Open** |
+| 🪟 Windows 10/11 (experimental) | `Lisanote-<version>-windows-setup.exe` — if SmartScreen warns: **More info → Run anyway** |
 
 ## Install from source
 
 ```sh
-git clone https://github.com/MartinDean07/livescribe.git
-cd livescribe
+git clone https://github.com/MartinDean07/lisanote.git
+cd lisanote
 sh install.sh
 ```
 
-Then open **Livescribe** from your app menu (Linux) or Launchpad / Spotlight (macOS).
+Then open **Lisanote** from your app menu (Linux) or Launchpad / Spotlight (macOS).
 On first start the **Settings** panel opens: pick a provider, paste your API key, press **Test & save**.
 
 ### Requirements
@@ -55,7 +55,7 @@ On first start the **Settings** panel opens: pick a provider, paste your API key
 |---|---|
 | Linux | `ffmpeg`, `pactl` (PipeWire or PulseAudio), and for the window/tray: `python3-gi gir1.2-webkit2-4.1 gir1.2-ayatanaappindicator3-0.1` (preinstalled on Mint/Ubuntu desktops) |
 | macOS | `brew install ffmpeg blackhole-2ch` — see *macOS audio setup* below. `install.sh` adds `pystray` + `pywebview` |
-| Windows | Python 3, then `py -m pip install soundcard numpy pystray pywebview pillow`; double-click `Livescribe.bat` |
+| Windows | Python 3, then `py -m pip install soundcard numpy pystray pywebview pillow`; double-click `Lisanote.bat` |
 
 ### macOS audio setup (one time)
 macOS cannot record "what you hear" by itself, so add the free BlackHole loopback driver:
@@ -82,11 +82,11 @@ switch to headphones or Bluetooth.
 **Automatic** uses the provider you selected, otherwise Hermes Agent → any provider with a key → offline.
 
 Keys can also come from environment variables: `OPENAI_API_KEY`, `GROQ_API_KEY`, `MISTRAL_API_KEY`,
-`LIVESCRIBE_API_KEY` (custom).
+`LISANOTE_API_KEY` (custom).
 
 ### Privacy
-- API keys are stored **only on your computer** in `~/.config/livescribe/config.json`
-  (`%APPDATA%\Livescribe\config.json` on Windows), with permissions `600`. The window only ever
+- API keys are stored **only on your computer** in `~/.config/lisanote/config.json`
+  (`%APPDATA%\Lisanote\config.json` on Windows), with permissions `600`. The window only ever
   sees a masked version (`sk-…abcd`).
 - Audio is cut into short pieces at natural pauses; silence is never sent. With a cloud provider
   those pieces go to that provider only. **Offline** keeps everything on your device.
@@ -96,21 +96,21 @@ Keys can also come from environment variables: `OPENAI_API_KEY`, `GROQ_API_KEY`,
 
 ## Using it
 - **Record**: big round button or <kbd>Space</kbd>. Choose *Hear + mic*, *Hear only* or *Mic*, and a language (or auto).
-- **Tray / menu bar**: closing the window keeps Livescribe running; the icon turns red while recording.
+- **Tray / menu bar**: closing the window keeps Lisanote running; the icon turns red while recording.
   Menu: Show · Start/Stop recording · Open transcripts folder · Start at login · Quit.
 - **Transcripts**: `~/Transcripts/<date>_<time>_<title>.md`, written live, one timestamped line per sentence.
 
 ### Command line
 ```sh
-livescribe                               # what you hear + mic, provider from Settings
-livescribe --source system --lang ar     # only other apps, Arabic
-livescribe --engine groq --title "Lecture"
-livescribe --set-key openai sk-...       # save a key without the UI
-livescribe --stop
+lisanote                               # what you hear + mic, provider from Settings
+lisanote --source system --lang ar     # only other apps, Arabic
+lisanote --engine groq --title "Lecture"
+lisanote --set-key openai sk-...       # save a key without the UI
+lisanote --stop
 ```
 
 ## How it works
-`ffmpeg` (Linux/macOS) or WASAPI loopback (Windows) streams 16 kHz mono audio; Livescribe cuts it into
+`ffmpeg` (Linux/macOS) or WASAPI loopback (Windows) streams 16 kHz mono audio; Lisanote cuts it into
 4–15 s chunks at pauses and sends each chunk to the chosen provider in a background thread. The window
 is a small local web UI shown in a native web view (GTK/WebKit on Linux, pywebview on macOS/Windows,
 or a Chrome/Edge app window as fallback).
@@ -118,7 +118,7 @@ or a Chrome/Edge app window as fallback).
 Delay is roughly 5–20 s behind live speech, because each piece waits for a pause.
 
 ## License
-MIT with an attribution requirement — free for personal and commercial use. If you use Livescribe
+MIT with an attribution requirement — free for personal and commercial use. If you use Lisanote
 (or something built from it) commercially, credit the original author visibly, e.g.
-*"Based on Livescribe by Martin Dean (https://github.com/MartinDean07/livescribe)"*.
+*"Based on Lisanote by Martin Dean (https://github.com/MartinDean07/lisanote)"*.
 See [LICENSE](LICENSE).

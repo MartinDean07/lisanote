@@ -2,7 +2,7 @@
 <html lang="en" dir="ltr">
 <head>
 <meta charset="utf-8">
-<title>Livescribe</title>
+<title>Lisanote</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark light">
 <style>
@@ -281,7 +281,7 @@ $('copyBtn').onclick = async () => {
   const txt = lines.map(l => `[${l.ts}] ${l.text}`).join('\n');
   try { await navigator.clipboard.writeText(txt); toast('Transcript copied'); } catch { toast('Copy failed'); } };
 /* keep-on-top: only available inside the native shells (GTK on Linux, pywebview on macOS/Windows) */
-const gtk = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.livescribe;
+const gtk = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.lisanote;
 let pinned = true;
 function setPin(on){ if (gtk) gtk.postMessage({pin: on}); else if (window.pywebview) window.pywebview.api.pin(on); }
 function showPin(){ $('pinBtn').hidden = false; $('pinBtn').classList.toggle('on', pinned); }

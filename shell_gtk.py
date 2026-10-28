@@ -1,11 +1,11 @@
 #!/usr/bin/python3
-"""Native Linux window + tray icon for Livescribe (GTK3 + WebKit2GTK). Runs under the *system* python3.
+"""Native Linux window + tray icon for Lisanote (GTK3 + WebKit2GTK). Runs under the *system* python3.
 
   shell_gtk.py URL [--tray] [--hidden]
 
 --tray   : put an icon in the panel (XApp status icon on Cinnamon/MATE/Xfce, else Ayatana AppIndicator).
            Closing the window then only hides it; the process (and any recording) keeps running
-           until "Quit Livescribe" in the tray menu.
+           until "Quit Lisanote" in the tray menu.
 --hidden : start with only the tray icon (used for start-at-login).
 """
 import json, os, sys, threading, urllib.request
@@ -25,8 +25,8 @@ ICONS = HERE / "icons"
 _u = urlparse(URL)
 BASE, TOKEN = f"{_u.scheme}://{_u.netloc}", parse_qs(_u.query).get("t", [""])[0]
 
-GLib.set_prgname("livescribe-window")  # WebKit stores its data under ~/.local/share/<prgname>
-GLib.set_application_name("Livescribe")
+GLib.set_prgname("lisanote-window")  # WebKit stores its data under ~/.local/share/<prgname>
+GLib.set_application_name("Lisanote")
 Gtk.Settings.get_default().set_property("gtk-application-prefer-dark-theme", True)
 
 
@@ -44,16 +44,16 @@ def api_bg(path, body=None):
 
 
 # ───────────────────────── window ─────────────────────────
-win = Gtk.Window(title="Livescribe")
+win = Gtk.Window(title="Lisanote")
 win.set_default_size(460, 700)
-if (ICONS / "livescribe.svg").exists():
-    win.set_icon_from_file(str(ICONS / "livescribe.svg"))
+if (ICONS / "lisanote.svg").exists():
+    win.set_icon_from_file(str(ICONS / "lisanote.svg"))
 else:
     win.set_icon_name("audio-input-microphone")
 win.set_keep_above(True)
 
 manager = WebKit2.UserContentManager()
-manager.register_script_message_handler("livescribe")
+manager.register_script_message_handler("lisanote")
 
 
 def on_msg(_m, res):
@@ -65,7 +65,7 @@ def on_msg(_m, res):
         pass
 
 
-manager.connect("script-message-received::livescribe", on_msg)
+manager.connect("script-message-received::lisanote", on_msg)
 view = WebKit2.WebView.new_with_user_content_manager(manager)
 s = view.get_settings()
 s.set_enable_developer_extras(False)
@@ -106,7 +106,7 @@ def make_menu():
         if key:
             items[key] = it
 
-    add("Show Livescribe", show_window)
+    add("Show Lisanote", show_window)
     add("Start recording", lambda *_: api_bg("/toggle"), "rec")
     add("Open transcripts folder", lambda *_: api_bg("/open"))
     m.append(Gtk.SeparatorMenuItem())
@@ -119,7 +119,7 @@ def make_menu():
     m.append(login)
     items["login"] = login
     m.append(Gtk.SeparatorMenuItem())
-    add("Quit Livescribe", lambda *_: Gtk.main_quit())
+    add("Quit Lisanote", lambda *_: Gtk.main_quit())
     m.show_all()
     return m, items
 
@@ -137,9 +137,9 @@ def setup_tray():
         from gi.repository import XApp
         if XApp.StatusIcon.any_monitors():           # Cinnamon / MATE / Xfce panels
             ic = XApp.StatusIcon()
-            ic.set_name("livescribe")
+            ic.set_name("lisanote")
             ic.set_icon_name(icon_for("idle"))
-            ic.set_tooltip_text("Livescribe")
+            ic.set_tooltip_text("Lisanote")
             ic.set_secondary_menu(menu)              # right-click = menu
             ic.connect("activate", lambda _i, button, _t: toggle_window() if button == 1 else None)
             ic.set_visible(True)
@@ -150,9 +150,9 @@ def setup_tray():
     try:                                              # GNOME (with extension) / KDE / others
         gi.require_version("AyatanaAppIndicator3", "0.1")
         from gi.repository import AyatanaAppIndicator3 as AI
-        ind = AI.Indicator.new("livescribe", icon_for("idle"), AI.IndicatorCategory.APPLICATION_STATUS)
+        ind = AI.Indicator.new("lisanote", icon_for("idle"), AI.IndicatorCategory.APPLICATION_STATUS)
         ind.set_status(AI.IndicatorStatus.ACTIVE)
-        ind.set_title("Livescribe")
+        ind.set_title("Lisanote")
         ind.set_menu(menu)
         ind.set_secondary_activate_target(menu.get_children()[0])
         tray.update(kind="ayatana", obj=ind, menu=menu)
@@ -171,13 +171,13 @@ def apply_state(st):
             it.set_label("Stop recording" if rec == "recording" else
                          "Finishing…" if rec == "stopping" else "Start recording")
             it.set_sensitive(rec != "stopping")
-            icon, tip = icon_for(rec), ("Livescribe — recording" if rec == "recording" else "Livescribe")
+            icon, tip = icon_for(rec), ("Lisanote — recording" if rec == "recording" else "Lisanote")
             if tray["kind"] == "xapp":
                 tray["obj"].set_icon_name(icon)
                 tray["obj"].set_tooltip_text(tip)
             else:
                 tray["obj"].set_icon_full(icon, tip)
-        win.set_title("● Livescribe — recording" if rec == "recording" else "Livescribe")
+        win.set_title("● Lisanote — recording" if rec == "recording" else "Lisanote")
     if state["show_seq"] is not None and st["show_seq"] != state["show_seq"]:
         show_window()                  # another launch (menu / desktop icon) asked us to come forward
     state["show_seq"] = st["show_seq"]

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Livescribe desktop app.
+"""Lisanote desktop app.
 
 A tiny local web server (127.0.0.1 only, random token) serves ui.html and streams live
 events (Server-Sent Events). The window is a native web view:
@@ -25,10 +25,10 @@ from urllib.parse import parse_qs, urlparse
 FROZEN = getattr(sys, "frozen", False)
 HERE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))   # bundled data dir when packaged
 sys.path.insert(0, str(HERE))
-import livescribe as ls  # noqa: E402
+import lisanote as ls  # noqa: E402
 
-STATE_FILE = Path.home() / ".livescribe-ui.json"
-SETTINGS_FILE = Path.home() / ".livescribe-settings.json"
+STATE_FILE = Path.home() / ".lisanote-ui.json"
+SETTINGS_FILE = Path.home() / ".lisanote-settings.json"
 PORTS = [47321, 47322, 47323, 0]
 ICONS = HERE / "icons"
 DEFAULT_SETTINGS = {"source": "both", "lang": "", "title": "Meeting"}
@@ -84,15 +84,15 @@ def update_config(body: dict):
 
 
 # ───────────────────────── start at login ─────────────────────────
-MAC_APP = Path.home() / "Applications" / "Livescribe.app"
+MAC_APP = Path.home() / "Applications" / "Lisanote.app"
 
 
 def _autostart_path() -> Path:
     if ls.IS_MAC:
-        return Path.home() / "Library" / "LaunchAgents" / "no.livescribe.app.plist"
+        return Path.home() / "Library" / "LaunchAgents" / "io.github.martindean07.lisanote.plist"
     if ls.IS_WIN:
-        return Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup" / "Livescribe.bat"
-    return Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "autostart" / "livescribe.desktop"
+        return Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup" / "Lisanote.bat"
+    return Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "autostart" / "lisanote.desktop"
 
 
 def autostart_enabled() -> bool:
@@ -111,22 +111,22 @@ def set_autostart(on: bool):
     if ls.IS_MAC:
         bundle = Path(sys.executable).resolve().parents[2] if FROZEN else MAC_APP
         args = (["/usr/bin/open", "-a", str(bundle), "--args", "--hidden"] if bundle.suffix == ".app" and bundle.exists()
-                else [str(HERE / "livescribe-launch.sh"), "--hidden"])
+                else [str(HERE / "lisanote-launch.sh"), "--hidden"])
         items = "".join(f"<string>{a}</string>" for a in args)
         p.write_text('<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" '
                      '"http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>'
-                     '<key>Label</key><string>no.livescribe.app</string>'
+                     '<key>Label</key><string>io.github.martindean07.lisanote</string>'
                      f'<key>ProgramArguments</key><array>{items}</array>'
                      '<key>RunAtLoad</key><true/></dict></plist>\n')
     elif ls.IS_WIN and FROZEN:
         p.write_text(f'@start "" "{sys.executable}" --hidden\r\n')
     elif ls.IS_WIN:
         pyw = Path(sys.executable).with_name("pythonw.exe")
-        p.write_text(f'@start "" "{pyw if pyw.exists() else sys.executable}" "{HERE / "livescribe_gui.py"}" --hidden\r\n')
+        p.write_text(f'@start "" "{pyw if pyw.exists() else sys.executable}" "{HERE / "lisanote_gui.py"}" --hidden\r\n')
     else:
-        p.write_text("[Desktop Entry]\nType=Application\nName=Livescribe\n"
-                     f"Exec=\"{HERE / 'livescribe-launch.sh'}\" --hidden\n"
-                     f"Icon={ICONS / 'livescribe.svg'}\nX-GNOME-Autostart-enabled=true\n"
+        p.write_text("[Desktop Entry]\nType=Application\nName=Lisanote\n"
+                     f"Exec=\"{HERE / 'lisanote-launch.sh'}\" --hidden\n"
+                     f"Icon={ICONS / 'lisanote.svg'}\nX-GNOME-Autostart-enabled=true\n"
                      "Comment=Live transcription in the background\n")
 
 
@@ -381,7 +381,7 @@ def open_window(url, gtk_flags=()) -> subprocess.Popen | None:
         pass
     br = find_chromium()
     if br:
-        prof = Path.home() / ".livescribe-browser"
+        prof = Path.home() / ".lisanote-browser"
         return subprocess.Popen([br, f"--app={url}", f"--user-data-dir={prof}", "--window-size=460,700",
                                  "--no-first-run", "--no-default-browser-check"],
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -440,7 +440,7 @@ def run_pystray(hub, url, hidden) -> bool:
         icon.stop()
 
     menu = Menu(
-        Item("Show Livescribe", show, default=True),
+        Item("Show Lisanote", show, default=True),
         Item(lambda _: "Stop recording" if hub.state == "recording" else "Start recording", toggle_rec,
              enabled=lambda _: hub.state != "stopping"),
         Item("Open transcripts folder", lambda *_: open_path(str(ls.OUTDIR_DEFAULT))),
@@ -448,14 +448,14 @@ def run_pystray(hub, url, hidden) -> bool:
         Item("Start at login", lambda *_: set_autostart(not autostart_enabled()),
              checked=lambda _: autostart_enabled()),
         Menu.SEPARATOR,
-        Item("Quit Livescribe", quit_app))
+        Item("Quit Lisanote", quit_app))
     if ls.IS_MAC:  # menu-bar only: no Dock icon for the background process
         try:
             from AppKit import NSApplication
             NSApplication.sharedApplication().setActivationPolicy_(1)  # Accessory
         except Exception:
             pass
-    icon = pystray.Icon("livescribe", idle_img, "Livescribe", menu)
+    icon = pystray.Icon("lisanote", idle_img, "Lisanote", menu)
     hub.tray = True
 
     def watch():
@@ -465,7 +465,7 @@ def run_pystray(hub, url, hidden) -> bool:
             if hub.state != last:
                 last = hub.state
                 icon.icon = rec_img if last != "idle" else idle_img
-                icon.title = "Livescribe - recording" if last == "recording" else "Livescribe"
+                icon.title = "Lisanote - recording" if last == "recording" else "Lisanote"
                 try:
                     icon.update_menu()
                 except Exception:
@@ -489,7 +489,7 @@ def run_pystray(hub, url, hidden) -> bool:
 def self_test():
     """Used by the release builds: check that everything the app needs is bundled/installed."""
     problems = []
-    for f in ("ui.html", "icons/livescribe.svg", "icons/tray-idle.svg"):
+    for f in ("ui.html", "icons/lisanote.svg", "icons/tray-idle.svg"):
         if not (HERE / f).exists():
             problems.append(f"missing {f}")
     try:
@@ -502,7 +502,7 @@ def self_test():
             import soundcard, numpy  # noqa: F401
     except Exception as e:
         problems.append(f"{type(e).__name__}: {e}")
-    print(f"livescribe {ls.__version__} self-test: " + ("ok" if not problems else "; ".join(problems)), flush=True)
+    print(f"lisanote {ls.__version__} self-test: " + ("ok" if not problems else "; ".join(problems)), flush=True)
     sys.exit(1 if problems else 0)
 
 
@@ -513,7 +513,7 @@ def main():
     if "--self-test" in sys.argv:
         return self_test()
     if "--version" in sys.argv:
-        return print(f"livescribe {ls.__version__}")
+        return print(f"lisanote {ls.__version__}")
     hidden = "--hidden" in sys.argv
     info, st = existing_instance()
     if "--toggle" in sys.argv:          # app-menu / dock action: start or stop recording
@@ -549,7 +549,7 @@ def main():
     os.chmod(STATE_FILE, 0o600)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     url = f"http://127.0.0.1:{port}/?t={token}"
-    print(f"[livescribe] UI at {url}", file=sys.stderr, flush=True)
+    print(f"[lisanote] UI at {url}", file=sys.stderr, flush=True)
     if "--toggle" in sys.argv:
         s = load_settings()
         hub.start(s["source"], s["lang"], s["title"] or "session")

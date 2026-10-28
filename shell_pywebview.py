@@ -13,7 +13,7 @@ def run(url):
             self.win.on_top = bool(on)
 
     api = Api()
-    api.win = webview.create_window("Livescribe", url, width=460, height=700, on_top=True,
+    api.win = webview.create_window("Lisanote", url, width=460, height=700, on_top=True,
                                     js_api=api, background_color="#0d0f13")
     webview.start()
 
