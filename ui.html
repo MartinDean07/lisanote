@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<title>Livescribe</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<style>
+:root{
+  --bg:#0d0f13; --surface:#15181e; --surface-2:#1e222a; --line:#232832;
+  --text:#eceef2; --muted:#8b93a1; --faint:#596170;
+  --accent:#8b9bff; --rec:#ff4d5e; --warn:#f5b14c;
+  --font-latin: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Inter", "Noto Sans", Roboto, sans-serif;
+  --font-arabic: "IBM Plex Sans Arabic", "Noto Sans Arabic", "Geeza Pro", "Segoe UI", "Noto Naskh Arabic", sans-serif;
+  --font: var(--font-latin), var(--font-arabic);
+}
+@media (prefers-color-scheme: light){
+  :root{ --bg:#f7f8fa; --surface:#ffffff; --surface-2:#eef0f4; --line:#e4e7ec;
+         --text:#12151a; --muted:#5d6574; --faint:#a0a7b3; }
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:14px/1.5 var(--font);display:flex;flex-direction:column;
+     -webkit-font-smoothing:antialiased;overflow:hidden;user-select:none}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ── top bar ── */
+header{display:flex;align-items:center;gap:6px;padding:16px 16px 4px 20px}
+.pill{display:inline-flex;align-items:center;gap:9px;height:30px;padding-inline:11px 13px;border-radius:999px;
+      background:var(--surface);border:1px solid var(--line);font-size:12.5px;color:var(--muted);
+      font-variant-numeric:tabular-nums;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:none}
+body.recording .dot{background:var(--rec);animation:pulse 1.8s infinite}
+body.stopping .dot{background:var(--warn)}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,77,94,.5)}70%{box-shadow:0 0 0 7px rgba(255,77,94,0)}100%{box-shadow:0 0 0 0 rgba(255,77,94,0)}}
+.meter{display:none;gap:2px;align-items:center;height:14px;color:var(--rec)}
+body.recording .meter{display:inline-flex}
+.meter i{width:3px;height:3px;border-radius:2px;background:currentColor;transition:height .09s ease-out}
+.spacer{flex:1}
+.icon{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;border:0;background:transparent;color:var(--muted);position:relative}
+.icon:hover{background:var(--surface);color:var(--text)}
+.icon.on{color:var(--accent)}
+.icon svg{width:18px;height:18px}
+.icon .badge{position:absolute;inset-block-end:3px;inset-inline-end:2px;font-size:8.5px;font-weight:700;letter-spacing:.02em;color:inherit}
+.icon[hidden]{display:none}
+
+/* ── title + options ── */
+.title{margin:10px 20px 0;padding:0;border:0;background:transparent;font-size:24px;font-weight:650;letter-spacing:-.01em;
+       width:calc(100% - 40px);outline:none;user-select:text;unicode-bidi:plaintext;text-align:start}
+.title::placeholder{color:var(--faint)}
+.options{display:flex;gap:8px;padding:12px 20px 14px;flex-wrap:wrap;transition:opacity .2s}
+body.recording .options, body.stopping .options{opacity:.45;pointer-events:none}
+.seg{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:3px}
+.seg button{border:0;background:transparent;padding:5px 11px;border-radius:8px;color:var(--muted);font-size:13px;display:flex;gap:6px;align-items:center}
+.seg button svg{width:14px;height:14px}
+.seg button[aria-pressed=true]{background:var(--surface-2);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.18)}
+.select{position:relative}
+.select select{appearance:none;-webkit-appearance:none;height:100%;min-height:34px;border:1px solid var(--line);border-radius:11px;
+       background:var(--surface);padding-block:0;padding-inline:12px 30px;font-size:13px;color:var(--text)}
+.select::after{content:"";position:absolute;inset-inline-end:12px;top:50%;width:6px;height:6px;margin-top:-5px;
+       border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(45deg);pointer-events:none}
+
+/* ── transcript ── */
+main{flex:1;overflow-y:auto;padding:0 20px 20px;border-top:1px solid var(--line);user-select:text}
+main::-webkit-scrollbar{width:8px} main::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}
+.line{padding:14px 0 12px;border-top:1px solid var(--line);animation:rise .35s ease both}
+.empty + .line, .line:first-child{border-top:0}
+.line time{display:block;font-size:11.5px;color:var(--faint);font-variant-numeric:tabular-nums;margin-bottom:3px;
+           direction:ltr;unicode-bidi:isolate;text-align:start}
+.line p{margin:0;font-size:16px;line-height:1.65;text-align:start;overflow-wrap:anywhere}
+.line[dir=rtl] p{font-family:var(--font-arabic),var(--font-latin);font-size:17.5px;line-height:1.9}
+.line[dir=rtl] time{text-align:right}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.typing{display:none;padding:14px 0;gap:5px}
+body.pending .typing{display:flex}
+.typing i{width:6px;height:6px;border-radius:50%;background:var(--faint);animation:blink 1.2s infinite}
+.typing i:nth-child(2){animation-delay:.2s} .typing i:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+.empty{height:100%;display:grid;place-content:center;text-align:center;color:var(--muted);gap:12px;padding:40px 10px}
+.empty svg{width:56px;height:56px;margin:0 auto;color:var(--faint)}
+.empty b{display:block;color:var(--text);font-weight:600;font-size:15px}
+.empty small{font-size:13px;max-width:260px}
+
+/* ── footer ── */
+footer{display:flex;align-items:center;gap:14px;padding:14px 20px 18px;border-top:1px solid var(--line)}
+.rec{width:56px;height:56px;flex:none;border-radius:50%;border:0;background:var(--rec);display:grid;place-items:center;
+     box-shadow:0 8px 24px -8px var(--rec);transition:transform .15s, filter .15s}
+.rec:hover{filter:brightness(1.08)} .rec:active{transform:scale(.94)}
+.rec .shape{width:20px;height:20px;border-radius:50%;background:#fff;transition:all .22s cubic-bezier(.3,.7,.4,1)}
+body.recording .rec .shape{width:18px;height:18px;border-radius:5px}
+body.stopping .rec{filter:saturate(.3);cursor:wait}
+.foot{min-width:0;flex:1}
+.foot b{display:block;font-weight:600;font-size:14.5px}
+.foot small{display:block;color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.foot small.warn{color:var(--warn)}
+.foot small a{color:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+kbd{font:11px var(--font-latin);padding:1px 5px;border:1px solid var(--line);border-radius:4px;color:var(--faint)}
+.toast{position:fixed;inset-inline:0;bottom:96px;margin:auto;width:max-content;padding:7px 14px;border-radius:999px;
+       background:var(--text);color:var(--bg);font-size:12.5px;opacity:0;transform:translateY(6px);transition:all .2s;pointer-events:none}
+.toast.show{opacity:1;transform:none}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+
+/* ── settings sheet ── */
+.sheet{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;transform:translateY(100%);
+       transition:transform .28s cubic-bezier(.3,.7,.4,1);z-index:5;user-select:none}
+.sheet.open{transform:none}
+.sheet header{padding:16px 16px 6px 20px}
+.sheet h2{margin:0;font-size:18px;font-weight:650}
+.sheet .body{flex:1;overflow-y:auto;padding:6px 20px 24px}
+.sheet .hint{color:var(--muted);font-size:12.5px;margin:2px 0 14px}
+.provs{display:grid;gap:8px}
+.prov{display:flex;align-items:center;gap:12px;padding:11px 13px;border:1px solid var(--line);border-radius:12px;
+      background:var(--surface);cursor:pointer;text-align:start;width:100%}
+.prov:hover{border-color:var(--faint)}
+.prov[aria-checked=true]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.prov .radio{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--faint);flex:none;display:grid;place-items:center}
+.prov[aria-checked=true] .radio{border-color:var(--accent)}
+.prov[aria-checked=true] .radio::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.prov b{display:block;font-weight:600;font-size:14px}
+.prov small{display:block;color:var(--muted);font-size:12px}
+.prov .tag{margin-inline-start:auto;font-size:11px;color:var(--muted);white-space:nowrap}
+.prov .tag.ok{color:#4cc38a}
+.prov:disabled{opacity:.45;cursor:not-allowed}
+.detail{margin-top:16px;display:grid;gap:12px}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+.field input,.field select{width:100%;height:38px;border:1px solid var(--line);border-radius:10px;background:var(--surface);
+      padding:0 12px;font-size:13.5px;color:var(--text);outline:none;user-select:text}
+.field input:focus,.field select:focus{border-color:var(--accent)}
+.field .row{display:flex;gap:8px}
+.field .row input{flex:1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+.btn{height:38px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);font-size:13px;white-space:nowrap}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#0d0f13;font-weight:600}
+.btn:disabled{opacity:.5;cursor:wait}
+.small{font-size:12px;color:var(--muted)} .small a{color:var(--accent);cursor:pointer;text-decoration:none}
+.result{font-size:12.5px;min-height:18px} .result.ok{color:#4cc38a} .result.bad{color:var(--rec)}
+.privacy{margin-top:18px;padding:12px 13px;border-radius:12px;background:var(--surface);font-size:12px;color:var(--muted);line-height:1.55}
+</style>
+</head>
+<body>
+<header>
+  <span class="pill" id="pill"><span class="dot"></span><span id="pillText">Ready</span>
+    <span class="meter" id="meter"><i></i><i></i><i></i><i></i><i></i></span></span>
+  <span class="spacer"></span>
+  <button class="icon" id="dirBtn" title="Text direction">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h9M15 4v16M10 4v9a4 4 0 0 1 0-9"/><path d="M3 18h7m-2-2 2 2-2 2"/></svg>
+    <span class="badge" id="dirBadge">A</span></button>
+  <button class="icon" id="copyBtn" title="Copy transcript">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8"/></svg></button>
+  <button class="icon" id="folderBtn" title="Open transcripts folder">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5A2.5 2.5 0 0 1 6 5h3.6l2 2.2H18a2.5 2.5 0 0 1 2.5 2.5v6.8A2.5 2.5 0 0 1 18 19H6a2.5 2.5 0 0 1-2.5-2.5z"/></svg></button>
+  <button class="icon" id="setBtn" title="Transcription provider &amp; API key">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  <button class="icon" id="pinBtn" title="Keep on top" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6l-1 6 3 3H7l3-3zM12 13v7"/></svg></button>
+</header>
+
+<input class="title" id="title" dir="auto" value="Meeting" placeholder="Untitled" spellcheck="false" aria-label="Session title">
+
+<div class="options">
+  <div class="seg" id="source" role="group" aria-label="Listen to">
+    <button data-v="both"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></svg>Hear + mic</button>
+    <button data-v="system">Hear only</button>
+    <button data-v="mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Mic</button>
+  </div>
+  <label class="select"><select id="lang" aria-label="Language">
+    <option value="">Auto language</option>
+    <option value="en">English</option>
+    <option value="ar">العربية</option>
+    <option value="no">Norsk</option>
+    <option value="sv">Svenska</option>
+    <option value="tr">Türkçe</option>
+  </select></label>
+</div>
+
+<main id="feed">
+  <div class="empty" id="empty">
+    <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 24h2M13 18v12M20 12v24M27 16v16M34 20v8M41 23v2"/></svg>
+    <div><b>Nothing yet</b><small>Press record. Everything you hear and say shows up here, in any language.</small></div>
+  </div>
+  <div class="typing" id="typing"><i></i><i></i><i></i></div>
+</main>
+
+<footer>
+  <button class="rec" id="rec" aria-label="Start recording"><span class="shape"></span></button>
+  <div class="foot"><b id="footTitle">Start transcribing</b><small id="footSub">Press <kbd>Space</kbd> to start or stop</small></div>
+</footer>
+<div class="toast" id="toast"></div>
+
+<section class="sheet" id="sheet" aria-label="Settings">
+  <header><h2>Transcription</h2><span class="spacer"></span>
+    <button class="icon" id="closeSet" title="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></header>
+  <div class="body">
+    <p class="hint">Choose who turns speech into text. Bring your own API key, use Hermes Agent, or run offline.</p>
+    <div class="provs" id="provs" role="radiogroup"></div>
+    <div class="detail" id="detail"></div>
+    <div class="privacy">🔒 Your key is stored only on this computer (<span id="cfgPath"></span>, readable only by you) and is sent
+      only to the provider you pick. Cloud providers receive the audio pieces you record; “Offline” keeps everything on-device.</div>
+  </div>
+</section>
+
+<script>
+const T = new URLSearchParams(location.search).get('t');
+const $ = id => document.getElementById(id);
+const api = (p, b = {}) => fetch(p + '?t=' + T, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(b)}).catch(() => {});
+let state = 'idle', started = null, lines = [], file = null, engine = '', lastErr = '';
+let source = localStorage.source || 'both';
+let dirMode = localStorage.dirMode || 'auto';           // auto | rtl | ltr
+$('lang').value = localStorage.lang || '';
+$('title').value = localStorage.title || 'Meeting';
+
+/* direction: count strong RTL vs LTR letters (better than first-strong-char for mixed Arabic/English) */
+const RTL = /[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/g, LTR = /[A-Za-z\u00C0-\u024F\u0370-\u03FF\u0400-\u04FF]/g;
+function detectDir(s){ const r=(s.match(RTL)||[]).length, l=(s.match(LTR)||[]).length; return r > l ? 'rtl' : 'ltr'; }
+function lineDir(s){ return dirMode === 'auto' ? detectDir(s) : dirMode; }
+function applyDirMode(){
+  document.documentElement.dir = dirMode === 'rtl' ? 'rtl' : 'ltr';
+  $('dirBadge').textContent = {auto:'A', rtl:'R', ltr:'L'}[dirMode];
+  $('dirBtn').title = {auto:'Text direction: automatic per line', rtl:'Text direction: right-to-left', ltr:'Text direction: left-to-right'}[dirMode];
+  $('dirBtn').classList.toggle('on', dirMode !== 'auto');
+  document.querySelectorAll('.line').forEach(el => el.dir = lineDir(el.querySelector('p').textContent));
+}
+$('dirBtn').onclick = () => { dirMode = {auto:'rtl', rtl:'ltr', ltr:'auto'}[dirMode]; localStorage.dirMode = dirMode; applyDirMode();
+  toast({auto:'Direction: automatic', rtl:'Direction: right-to-left', ltr:'Direction: left-to-right'}[dirMode]); };
+
+function renderSource(){ document.querySelectorAll('#source button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === source)); }
+document.querySelectorAll('#source button').forEach(b => b.onclick = () => { source = b.dataset.v; localStorage.source = source; renderSource(); });
+$('lang').onchange = e => localStorage.lang = e.target.value;
+$('title').oninput = e => localStorage.title = e.target.value;
+
+function addLine(item){
+  lines.push(item); $('empty').style.display = 'none';
+  const el = document.createElement('div'); el.className = 'line'; el.dir = lineDir(item.text);
+  const t = document.createElement('time'); t.textContent = item.ts;
+  const p = document.createElement('p'); p.textContent = item.text;
+  el.append(t, p); $('feed').insertBefore(el, $('typing'));
+  const f = $('feed'); if (f.scrollHeight - f.scrollTop - f.clientHeight < 160) f.scrollTop = f.scrollHeight;
+}
+function clearFeed(){ lines = []; document.querySelectorAll('.line').forEach(e => e.remove()); $('empty').style.display = ''; }
+
+const fmt = s => { s = Math.max(0, Math.floor(s)); const h = Math.floor(s/3600), m = Math.floor(s/60)%60, x = s%60;
+  return (h ? h + ':' + String(m).padStart(2,'0') : m) + ':' + String(x).padStart(2,'0'); };
+function render(){
+  document.body.className = state + (pending && state !== 'idle' ? ' pending' : '');
+  const el = started ? fmt(Date.now()/1000 - started) : '';
+  $('pillText').textContent = state === 'recording' ? (pending ? 'Transcribing · ' : 'Live · ') + el
+                           : state === 'stopping' ? 'Finishing…' : 'Ready';
+  $('rec').setAttribute('aria-label', state === 'idle' ? 'Start recording' : 'Stop recording');
+  $('footTitle').textContent = state === 'recording' ? 'Listening' : state === 'stopping' ? 'Saving the last sentences…'
+                            : (file ? 'Saved' : 'Start transcribing');
+  const sub = $('footSub'); sub.className = '';
+  if (lastErr){ sub.textContent = lastErr; sub.className = 'warn'; }
+  else if (state !== 'idle'){ sub.textContent = [engine, file && file.split(/[\\/]/).pop()].filter(Boolean).join('  ·  '); }
+  else if (file){ sub.innerHTML = ''; const a = document.createElement('a'); a.textContent = file.split(/[\\/]/).pop();
+    a.onclick = () => api('/open', {file: true}); sub.append(a); }
+  else sub.innerHTML = 'Press <kbd>Space</kbd> to start or stop';
+}
+let pending = 0;
+setInterval(() => { if (state === 'recording') render(); }, 1000);
+
+const bars = [...document.querySelectorAll('#meter i')], shape = [.55, .85, 1, .8, .5];
+function meter(level){ const v = Math.min(1, Math.sqrt(level / 0.12));
+  bars.forEach((b, i) => b.style.height = Math.max(3, 14 * v * shape[i] * (0.75 + Math.random() * .25)) + 'px'); }
+
+function toggle(){
+  if (state === 'idle'){
+    if (needsSetup()){ openSettings(); return toast('Add an API key first'); }
+    clearFeed(); file = null; lastErr = '';
+    api('/start', {source, lang: $('lang').value, title: $('title').value.trim() || 'session'});
+  } else if (state === 'recording') api('/stop');
+}
+$('rec').onclick = toggle;
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && !$('sheet').classList.contains('open') && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'SELECT' && document.activeElement.tagName !== 'BUTTON'){ e.preventDefault(); toggle(); }
+  if (e.key === 'Enter' && document.activeElement.id === 'title') document.activeElement.blur();
+});
+$('folderBtn').onclick = () => api('/open');
+$('copyBtn').onclick = async () => {
+  if (!lines.length) return toast('Nothing to copy yet');
+  const txt = lines.map(l => `[${l.ts}] ${l.text}`).join('\n');
+  try { await navigator.clipboard.writeText(txt); toast('Transcript copied'); } catch { toast('Copy failed'); } };
+/* keep-on-top: only available inside the native shells (GTK on Linux, pywebview on macOS/Windows) */
+const gtk = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.livescribe;
+let pinned = true;
+function setPin(on){ if (gtk) gtk.postMessage({pin: on}); else if (window.pywebview) window.pywebview.api.pin(on); }
+function showPin(){ $('pinBtn').hidden = false; $('pinBtn').classList.toggle('on', pinned); }
+if (gtk) showPin(); window.addEventListener('pywebviewready', showPin);
+$('pinBtn').onclick = () => { pinned = !pinned; $('pinBtn').classList.toggle('on', pinned); setPin(pinned); toast(pinned ? 'Kept on top' : 'Not on top'); };
+let tt; function toast(s){ const t = $('toast'); t.textContent = s; t.classList.add('show'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('show'), 1600); }
+
+function handle(m){
+  switch (m.type){
+    case 'snapshot':
+      state = m.state; started = m.started; file = m.file; engine = m.engine || '';
+      clearFeed(); m.lines.forEach(addLine);
+      break;
+    case 'state': state = m.state; started = m.started; if (m.file) file = m.file; if (state === 'idle') pending = 0; break;
+    case 'line': addLine(m); break;
+    case 'level': meter(m.level); pending = m.pending; if (m.file) file = m.file; break;
+    case 'engine': engine = m.text; break;
+    case 'error': lastErr = m.text; break;
+    case 'ping': return;
+  }
+  render();
+}
+function connect(){ const es = new EventSource('/events?t=' + T); es.onmessage = e => handle(JSON.parse(e.data));
+  es.onerror = () => { es.close(); setTimeout(connect, 1500); }; }
+
+/* ── settings ── */
+let cfg = null, selProv = null;
+const DESC = {auto: 'Best available: Hermes, then any provider with a key, then offline',
+  hermes: 'Reuse the speech-to-text you set up in Hermes Agent', local: 'Free, private, runs on this computer (slower, less accurate)',
+  openai: 'gpt-4o-transcribe · best quality, many languages', groq: 'Whisper large v3 · very fast, low price',
+  mistral: 'Voxtral · strong multilingual', custom: 'Any OpenAI-compatible endpoint (self-hosted, proxies…)'};
+async function loadCfg(){ try { cfg = await (await fetch('/config?t=' + T)).json(); } catch { cfg = null; } return cfg; }
+function provList(){
+  if (!cfg) return [];
+  const cloud = cfg.providers.map(p => ({id: p.id, label: p.label, ready: p.has_key, tag: p.has_key ? (p.from_env ? 'key from env' : 'key saved') : 'needs key'}));
+  return [{id: 'auto', label: 'Automatic', ready: true, tag: ''},
+          ...cloud,
+          {id: 'hermes', label: 'Hermes Agent', ready: cfg.hermes, tag: cfg.hermes ? 'found' : 'not installed', disabled: !cfg.hermes},
+          {id: 'local', label: 'Offline', ready: cfg.local, tag: cfg.local ? 'installed' : 'pip install faster-whisper', disabled: !cfg.local}];
+}
+function el(tag, attrs = {}, ...kids){ const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)){
+  if (k === 'class') e.className = v; else if (k.startsWith('on')) e[k] = v; else if (v !== false && v != null) e.setAttribute(k, v); }
+  kids.flat().forEach(k => e.append(k)); return e; }
+function renderSettings(){
+  if (!cfg) return;
+  $('cfgPath').textContent = cfg.config_file;
+  selProv = selProv || cfg.provider || 'auto';
+  const box = $('provs'); box.innerHTML = '';
+  for (const p of provList()){
+    box.append(el('button', {class: 'prov', role: 'radio', 'aria-checked': String(p.id === selProv), disabled: p.disabled || false,
+      onclick: () => choose(p.id)},
+      el('span', {class: 'radio'}), el('span', {}, el('b', {}, p.label), el('small', {}, DESC[p.id] || '')),
+      el('span', {class: 'tag' + (p.ready && p.tag ? ' ok' : '')}, p.tag)));
+  }
+  const d = $('detail'); d.innerHTML = '';
+  const p = cfg.providers.find(x => x.id === selProv);
+  if (p){
+    const key = el('input', {type: 'password', id: 'keyIn', placeholder: p.has_key ? 'Saved: ' + p.masked + '  (paste to replace)' : 'Paste your API key',
+      autocomplete: 'off', spellcheck: 'false'});
+    const show = el('button', {class: 'btn', onclick: () => { key.type = key.type === 'password' ? 'text' : 'password'; }}, 'Show');
+    d.append(el('div', {class: 'field'}, el('label', {}, p.label + ' API key'), el('div', {class: 'row'}, key, show),
+      p.key_url ? el('div', {class: 'small', style: 'margin-top:6px'}, 'Get a key: ', el('a', {onclick: () => api('/openurl', {url: p.key_url})}, p.key_url.replace('https://', ''))) : ''));
+    if (p.id === 'custom') d.append(el('div', {class: 'field'}, el('label', {}, 'API base URL'),
+      el('input', {id: 'baseIn', placeholder: 'https://my-server/v1', value: cfg.base_url || ''})));
+    const model = p.models.length
+      ? el('select', {id: 'modelIn'}, ...p.models.map(m => el('option', {value: m, selected: m === p.model || false}, m)))
+      : el('input', {id: 'modelIn', value: p.model, placeholder: 'model name'});
+    d.append(el('div', {class: 'field'}, el('label', {}, 'Model'), model));
+    const res = el('div', {class: 'result', id: 'res'});
+    const save = el('button', {class: 'btn primary', onclick: () => saveProv(p.id, save, res)}, 'Test & save');
+    const row = el('div', {class: 'row', style: 'display:flex;gap:8px;align-items:center'}, save);
+    if (p.has_key && !p.from_env) row.append(el('button', {class: 'btn', onclick: async () => {
+      await api('/config', {provider: p.id, clear_key: true}); await loadCfg(); renderSettings(); toast('Key removed'); }}, 'Remove key'));
+    d.append(row, res);
+  } else if (selProv === 'hermes' || selProv === 'local' || selProv === 'auto'){
+    const res = el('div', {class: 'result', id: 'res'});
+    const b = el('button', {class: 'btn primary', onclick: () => saveProv(selProv, b, res)}, selProv === 'auto' ? 'Save' : 'Test & use');
+    d.append(el('div', {style: 'display:flex;gap:8px'}, b), res);
+  }
+}
+function choose(id){ selProv = id; renderSettings(); }
+async function saveProv(id, btn, res){
+  btn.disabled = true; res.className = 'result'; res.textContent = 'Checking…';
+  const key = ($('keyIn') && $('keyIn').value.trim()) || '', model = $('modelIn') ? $('modelIn').value.trim() : '',
+        base_url = $('baseIn') ? $('baseIn').value.trim() : '';
+  let r = {ok: true, msg: 'Saved'};
+  if (id !== 'auto'){ try { r = await (await fetch('/test?t=' + T, {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({provider: id, key, model, base_url})})).json(); } catch { r = {ok: false, msg: 'App not responding'}; } }
+  if (r.ok){
+    await fetch('/config?t=' + T, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({provider: id, key, model, base_url})});
+    await loadCfg(); selProv = id; renderSettings(); lastErr = ''; render();
+    const r2 = $('res'); if (r2){ r2.className = 'result ok'; r2.textContent = '✓ ' + r.msg; }
+  } else { res.className = 'result bad'; res.textContent = '✗ ' + r.msg; }
+  btn.disabled = false;
+}
+function needsSetup(){
+  if (!cfg) return false;
+  const any = cfg.hermes || cfg.local || cfg.providers.some(p => p.has_key);
+  if (!any) return true;
+  const sel = cfg.providers.find(p => p.id === cfg.provider);
+  return !!(sel && !sel.has_key);
+}
+async function openSettings(){ await loadCfg(); selProv = cfg && cfg.provider; renderSettings(); $('sheet').classList.add('open'); }
+$('setBtn').onclick = openSettings;
+$('closeSet').onclick = () => $('sheet').classList.remove('open');
+document.addEventListener('keydown', e => { if (e.key === 'Escape') $('sheet').classList.remove('open'); }, true);
+loadCfg().then(() => { if (needsSetup()) openSettings(); });
+renderSource(); applyDirMode(); render(); connect();
+</script>
+</body>
+</html>
