@@ -1,4 +1,22 @@
-# Livescribe
+<p align="center">
+  <img src="icons/livescribe-256.png" width="112" alt="Livescribe icon">
+</p>
+
+<h1 align="center">Livescribe</h1>
+
+<p align="center"><b>Live transcription of meetings, videos and your mic — in any language.</b><br>
+Bring your own OpenAI / Groq / Mistral key, use Hermes Agent, or run fully offline.</p>
+
+<p align="center">
+  <img src="docs/screenshot-live.png" width="380" alt="Live transcript with Arabic, English and Norwegian lines">
+  &nbsp;&nbsp;
+  <img src="docs/screenshot-settings.png" width="380" alt="Choosing a transcription provider">
+</p>
+
+<p align="center"><sub>Left: a live session — Arabic lines flow right-to-left, English and Norwegian left-to-right.
+Right: pick a provider and paste your key.</sub></p>
+
+---
 
 Live transcription of **everything you hear and say** — meetings (Zoom, Meet, Teams), videos,
 lectures, any app — even with headphones on. Text appears in a small always-on-top window and is
@@ -14,7 +32,7 @@ saved as Markdown with timestamps. Arabic and other right-to-left languages are 
 ## Install
 
 ```sh
-git clone https://github.com/<you>/livescribe.git
+git clone https://github.com/MartinDean07/livescribe.git
 cd livescribe
 sh install.sh
 ```
@@ -90,4 +108,7 @@ or a Chrome/Edge app window as fallback).
 Delay is roughly 5–20 s behind live speech, because each piece waits for a pause.
 
 ## License
-MIT
+MIT with an attribution requirement — free for personal and commercial use. If you use Livescribe
+(or something built from it) commercially, credit the original author visibly, e.g.
+*"Based on Livescribe by Martin Dean (https://github.com/MartinDean07/livescribe)"*.
+See [LICENSE](LICENSE).

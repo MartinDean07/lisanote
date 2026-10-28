@@ -1,6 +1,6 @@
-MIT License
+MIT License with Attribution Requirement
 
-Copyright (c) 2026 Livescribe contributors
+Copyright (c) 2026 Martin Dean (https://github.com/MartinDean07)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -9,8 +9,21 @@ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. The above copyright notice and this permission notice shall be included in
+   all copies or substantial portions of the Software.
+
+2. Attribution for commercial use. If the Software, or any product, service or
+   work derived from it, is used commercially (including being sold, offered
+   as part of a paid product or hosted service, or used to provide paid
+   services), you must give clear and visible credit to the original author,
+   for example in the product's "About" screen, documentation, website or
+   credits, with the wording:
+
+       "Based on Livescribe by Martin Dean (https://github.com/MartinDean07/livescribe)"
+
+   or equivalent wording that names Martin Dean as the original creator and
+   links to the original project. The credit must not suggest that the
+   original author endorses the derived product.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
