@@ -27,7 +27,7 @@ button{cursor:pointer}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 /* ── top bar ── */
-header{display:flex;align-items:center;gap:6px;padding:16px 16px 4px 20px}
+header{display:flex;align-items:center;gap:2px;padding:16px 12px 4px 20px}
 .pill{display:inline-flex;align-items:center;gap:9px;height:30px;padding-inline:11px 13px;border-radius:999px;
       background:var(--surface);border:1px solid var(--line);font-size:12.5px;color:var(--muted);
       font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -50,14 +50,27 @@ body.recording .meter{display:inline-flex}
 .title{margin:10px 20px 0;padding:0;border:0;background:transparent;font-size:24px;font-weight:650;letter-spacing:-.01em;
        width:calc(100% - 40px);outline:none;user-select:text;unicode-bidi:plaintext;text-align:start}
 .title::placeholder{color:var(--faint)}
-.options{display:flex;gap:8px;padding:12px 20px 14px;flex-wrap:wrap;transition:opacity .2s}
+.options{display:grid;gap:10px;padding:12px 20px 14px;transition:opacity .2s}
+.opt-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.opt-label{width:72px;flex:none;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.seg button svg + svg{margin-inline-start:-4px}
+.chip{display:flex;align-items:center;gap:7px;height:34px;padding:0 12px;border-radius:11px;border:1px solid var(--line);
+      background:var(--surface);color:var(--muted);font-size:13px}
+.chip svg{width:15px;height:15px}
+.chip::before{content:"";width:14px;height:14px;border-radius:4px;border:1.5px solid var(--faint);flex:none;box-sizing:border-box}
+.chip[aria-pressed=true]{color:var(--text);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--surface))}
+.chip[aria-pressed=true]::before{border:0;background:var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5l2.5 2.5L12 5.5' fill='none' stroke='%230d0f13' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/12px no-repeat}
+.chip.chip-rec[aria-pressed=true]{border-color:var(--rec);background:color-mix(in srgb,var(--rec) 12%,var(--surface))}
+.chip.chip-rec[aria-pressed=true]::before{background-color:var(--rec)}
+.chip.chip-rec[aria-pressed=true] svg{color:var(--rec)}
+#langWrap.off{opacity:.4;pointer-events:none}
 body.recording .options, body.stopping .options{opacity:.45;pointer-events:none}
 .seg{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:3px}
 .seg button{border:0;background:transparent;padding:5px 11px;border-radius:8px;color:var(--muted);font-size:13px;display:flex;gap:6px;align-items:center}
 .seg button svg{width:14px;height:14px}
 .seg button[aria-pressed=true]{background:var(--surface-2);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.18)}
 .select{position:relative}
-.select select{appearance:none;-webkit-appearance:none;height:100%;min-height:34px;border:1px solid var(--line);border-radius:11px;
+.select select{appearance:none;-webkit-appearance:none;height:34px;min-height:34px;border:1px solid var(--line);border-radius:11px;
        background:var(--surface);padding-block:0;padding-inline:12px 30px;font-size:13px;color:var(--text)}
 .select::after{content:"";position:absolute;inset-inline-end:12px;top:50%;width:6px;height:6px;margin-top:-5px;
        border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(45deg);pointer-events:none}
@@ -156,7 +169,7 @@ body.dragging .drop{display:grid}
 </head>
 <body>
 <header>
-  <span class="pill" id="pill"><span class="dot"></span><span id="pillText">Ready</span><span class="tag">● Saving audio</span>
+  <span class="pill" id="pill"><span class="dot"></span><span id="pillText">Ready</span><span class="tag" title="Audio is being saved">● REC</span>
     <span class="meter" id="meter"><i></i><i></i><i></i><i></i><i></i></span></span>
   <span class="spacer"></span>
   <button class="icon" id="dirBtn" title="Text direction">
@@ -178,23 +191,29 @@ body.dragging .drop{display:grid}
 <input class="title" id="title" dir="auto" value="Meeting" placeholder="Untitled" spellcheck="false" aria-label="Session title">
 
 <div class="options">
-  <div class="seg" id="source" role="group" aria-label="Listen to">
-    <button data-v="both"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></svg>Hear + mic</button>
-    <button data-v="system">Hear only</button>
-    <button data-v="mic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Mic</button>
+  <div class="opt-row">
+    <span class="opt-label">Listen to</span>
+    <div class="seg" id="source" role="group" aria-label="Listen to">
+      <button data-v="both" title="Everything you hear and your microphone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></svg>+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Both</button>
+      <button data-v="system" title="Only what you hear: other people, videos, apps"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></svg>What I hear</button>
+      <button data-v="mic" title="Only your microphone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>My mic</button>
+    </div>
   </div>
-  <label class="select"><select id="lang" aria-label="Language">
-    <option value="">Auto language</option>
-    <option value="en">English</option>
-    <option value="ar">العربية</option>
-    <option value="no">Norsk</option>
-    <option value="sv">Svenska</option>
-    <option value="tr">Türkçe</option>
-  </select></label>
-  <div class="seg" id="mode" role="group" aria-label="What to keep">
-    <button data-v="text" title="Transcribe only (audio is not kept)">Text</button>
-    <button data-v="text_audio" class="rec-on" title="Transcribe and save the audio as one .m4a">Text + audio</button>
-    <button data-v="audio" class="rec-on" title="Save the audio only, no transcription (no API cost)">Audio only</button>
+  <div class="opt-row">
+    <span class="opt-label">Save</span>
+    <button class="chip" id="chipText" aria-pressed="true" title="Write a text transcript"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h14M5 11h14M5 16h9"/></svg>Transcript</button>
+    <button class="chip chip-rec" id="chipAudio" aria-pressed="false" title="Also keep the sound as an .m4a file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>Audio</button>
+  </div>
+  <div class="opt-row">
+    <span class="opt-label">Language</span>
+    <label class="select" id="langWrap"><select id="lang" aria-label="Language">
+      <option value="">Auto language</option>
+      <option value="en">English</option>
+      <option value="ar">العربية</option>
+      <option value="no">Norsk</option>
+      <option value="sv">Svenska</option>
+      <option value="tr">Türkçe</option>
+    </select></label>
   </div>
 </div>
 <div class="legal" id="legal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg>
@@ -257,9 +276,15 @@ $('dirBtn').onclick = () => { dirMode = {auto:'rtl', rtl:'ltr', ltr:'auto'}[dirM
 
 function renderMode(){
   const m = state !== 'idle' && job === 'live' ? jobMode : mode;     // show what is actually running
-  document.querySelectorAll('#mode button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === m)); }
-document.querySelectorAll('#mode button').forEach(b => b.onclick = () => { mode = b.dataset.v; renderMode(); render();
-  if (mode !== 'text') toast(mode === 'audio' ? 'Audio only — nothing is transcribed' : 'Audio will be saved too'); });
+  $('chipText').setAttribute('aria-pressed', m !== 'audio');
+  $('chipAudio').setAttribute('aria-pressed', m !== 'text');
+  $('langWrap').classList.toggle('off', m === 'audio'); }
+function setMode(text, aud){
+  if (!text && !aud) return toast('Keep at least the transcript or the audio');
+  mode = text && aud ? 'text_audio' : aud ? 'audio' : 'text'; renderMode(); render();
+  if (aud) toast(text ? 'Audio will be saved too' : 'Audio only — nothing is transcribed'); }
+$('chipText').onclick = () => setMode(mode === 'audio', mode !== 'text');
+$('chipAudio').onclick = () => setMode(mode !== 'audio', mode === 'text');
 function renderSource(){ document.querySelectorAll('#source button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === source)); }
 document.querySelectorAll('#source button').forEach(b => b.onclick = () => { source = b.dataset.v; localStorage.source = source; renderSource(); });
 $('lang').onchange = e => localStorage.lang = e.target.value;
@@ -295,7 +320,7 @@ function render(){
   $('footTitle').textContent = state === 'recording'
       ? (job === 'file' ? 'Transcribing file…' : m === 'audio' ? 'Recording audio' : 'Listening')
       : state === 'stopping' ? (m === 'audio' ? 'Saving the audio…' : 'Saving the last sentences…')
-      : ((file || audio) ? 'Saved' : m === 'audio' ? 'Start recording' : 'Start transcribing');
+      : ((file || audio) ? 'Saved' : m === 'audio' ? 'Start recording' : m === 'text_audio' ? 'Start transcribing + recording' : 'Start transcribing');
   const sub = $('footSub'); sub.className = '';
   if (lastErr){ sub.textContent = lastErr; sub.className = 'warn'; }
   else if (active){ sub.textContent = [engine, base(file), base(audio)].filter(Boolean).join('  ·  '); }
