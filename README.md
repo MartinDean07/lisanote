@@ -8,13 +8,21 @@
 Bring your own OpenAI / Groq / Mistral key, use Hermes Agent, or run fully offline.</p>
 
 <p align="center">
-  <img src="docs/screenshot-live.png" width="380" alt="Live transcript with Arabic, English and Norwegian lines">
-  &nbsp;&nbsp;
-  <img src="docs/screenshot-settings.png" width="380" alt="Choosing a transcription provider">
+  <img src="docs/screenshot-live.png" width="260" alt="Live transcript with Arabic, English and Norwegian lines">
+  &nbsp;
+  <img src="docs/screenshot-options.png" width="260" alt="Transcribing and recording a meeting">
+  &nbsp;
+  <img src="docs/screenshot-file.png" width="260" alt="Transcribing an audio file">
 </p>
 
-<p align="center"><sub>Left: a live session — Arabic lines flow right-to-left, English and Norwegian left-to-right.
-Right: pick a provider and paste your key.</sub></p>
+<p align="center"><sub><b>Live transcription</b> — Arabic right-to-left, English and Norwegian left-to-right ·
+<b>Transcript + Record</b> — the red ● REC badge shows the sound is being saved ·
+<b>Audio files</b> — drop a phone voice memo to transcribe it</sub></p>
+
+<p align="center">
+  <img src="docs/screenshot-settings.png" width="260" alt="Choosing a transcription provider"><br>
+  <sub><b>Settings</b> — pick a provider and paste your own API key</sub>
+</p>
 
 <p align="center">🆕 <b>Lisanote 2.0</b>: record the sound and transcribe audio files — <a href="docs/WHATS-NEW.md">see what's new</a></p>
 
