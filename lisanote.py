@@ -25,7 +25,7 @@ import argparse, array, datetime as dt, json, math, os, queue, re, shutil, signa
 import subprocess, sys, tempfile, threading, time, urllib.error, urllib.request, uuid, wave
 from pathlib import Path
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 FROZEN = getattr(sys, "frozen", False)   # True inside the packaged .exe / .app
 SR = 16000
 BLOCK_S = 0.25
@@ -67,12 +67,23 @@ def read_dotenv(path: Path) -> dict:
 
 
 # ───────────────────────────── capture ─────────────────────────────
-class FFmpegCapture:
-    """Linux (pulse) and macOS (avfoundation) → 16 kHz mono s16le on stdout."""
+TRACK_TITLES = {"mix": "Everything (mixed)", "system": "What I hear (other people / apps)", "mic": "My microphone"}
 
-    def __init__(self, source: str, log):
+
+class FFmpegCapture:
+    """Linux (pulse) and macOS (avfoundation) → 16 kHz mono s16le on stdout.
+
+    With record_to=<file.m4a> the same ffmpeg process also writes the audio to ONE .m4a file with
+    separate tracks: 1 = everything mixed (what players play by default), 2 = what you hear,
+    3 = your microphone. It is written as fragmented MP4 so a crash keeps what was recorded;
+    finalize() turns it into a normal .m4a (and joins parts if the output device changed).
+    """
+
+    def __init__(self, source: str, log, record_to: Path | None = None):
         self.source, self.log, self.proc, self.sink = source, log, None, None
         self.ff = which_ffmpeg()
+        self.record_to = Path(record_to) if record_to else None
+        self.parts: list[Path] = []
 
     # Linux --------------------------------------------------------
     def _pactl(self, *a):
@@ -120,10 +131,60 @@ class FFmpegCapture:
         elif self.source == "mic":
             cmd += mic_in
         else:
-            cmd += sys_in + mic_in + ["-filter_complex", "amix=inputs=2:duration=longest:normalize=0"]
-        cmd += ["-ac", "1", "-ar", str(SR), "-f", "s16le", "-"]
+            cmd += sys_in + mic_in
+        pcm = ["-ac", "1", "-ar", str(SR), "-f", "s16le", "pipe:1"]
+        if not self.record_to:
+            if self.source == "both":
+                cmd += ["-filter_complex", "amix=inputs=2:duration=longest:normalize=0"]
+            cmd += pcm
+        else:
+            part = self.record_to.with_name(f".{self.record_to.stem}.part{len(self.parts) + 1}.m4a")
+            self.parts.append(part)
+            mono = "aresample=48000,aformat=channel_layouts=mono"
+            if self.source == "both":
+                fc = (f"[0:a]{mono},asplit=2[s1][s2];[1:a]{mono},asplit=2[m1][m2];"
+                      "[s1][m1]amix=inputs=2:duration=longest:normalize=0,asplit=2[x1][x2];"
+                      f"[x1]aresample={SR}[pcm]")
+                maps, titles = ["-map", "[x2]", "-map", "[s2]", "-map", "[m2]"], ["mix", "system", "mic"]
+            else:
+                fc = f"[0:a]{mono},asplit=2[a1][a2];[a1]aresample={SR}[pcm]"
+                maps, titles = ["-map", "[a2]"], [self.source]
+            meta = []
+            for i, t in enumerate(titles):
+                meta += [f"-metadata:s:a:{i}", f"title={TRACK_TITLES[t]}",
+                         f"-disposition:a:{i}", "default" if i == 0 else "0"]
+            cmd += ["-filter_complex", fc, "-map", "[pcm]", *pcm,
+                    *maps, "-c:a", "aac", "-b:a", "64k", *meta,
+                    "-movflags", "+frag_keyframe+empty_moov+default_base_moof", "-frag_duration", "2000000",
+                    "-f", "mp4", "-y", str(part)]
         self.proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.DEVNULL)
         self._last_check = time.time()
+
+    def finalize(self) -> Path | None:
+        """Turn the recorded part(s) into one normal .m4a. Leaves the parts in place if that fails."""
+        parts = [p for p in self.parts if p.exists() and p.stat().st_size > 0]
+        if not self.record_to or not parts:
+            return None
+        if len(parts) == 1:
+            cmd = [self.ff, "-hide_banner", "-loglevel", "error", "-nostdin", "-i", str(parts[0])]
+        else:
+            lst = self.record_to.with_name(f".{self.record_to.stem}.parts.txt")
+            lst.write_text("".join(f"file '{p.name}'\n" for p in parts))
+            cmd = [self.ff, "-hide_banner", "-loglevel", "error", "-nostdin", "-f", "concat", "-safe", "0",
+                   "-i", str(lst)]
+        titles = (["mix", "system", "mic"] if self.source == "both" else [self.source])
+        meta = []
+        for i, t in enumerate(titles):     # stream titles don't survive the fragmented→normal remux; set again
+            meta += [f"-metadata:s:a:{i}", f"title={TRACK_TITLES[t]}", f"-metadata:s:a:{i}", f"handler_name={TRACK_TITLES[t]}"]
+        cmd += ["-map", "0", "-c", "copy", *meta, "-movflags", "+faststart", "-y", str(self.record_to)]
+        ok = subprocess.run(cmd, capture_output=True).returncode == 0 and self.record_to.exists()
+        if ok:
+            for p in parts:
+                p.unlink(missing_ok=True)
+            self.record_to.with_name(f".{self.record_to.stem}.parts.txt").unlink(missing_ok=True)
+            return self.record_to
+        self.log(f"could not finalize audio; raw recording kept as {tilde(parts[0])}")
+        return parts[0]
 
     def read(self) -> bytes:
         # Linux: follow the default output (e.g. you plug in headphones mid-meeting)
@@ -137,11 +198,42 @@ class FFmpegCapture:
 
     def stop(self):
         if self.proc:
-            self.proc.terminate()
+            self.proc.terminate()          # SIGTERM: ffmpeg flushes and closes the recording cleanly
             try:
-                self.proc.wait(2)
+                self.proc.wait(6)
             except subprocess.TimeoutExpired:
                 self.proc.kill()
+
+
+class FileCapture:
+    """Decodes an audio/video file (any format ffmpeg reads) to 16 kHz mono PCM."""
+
+    def __init__(self, path, log):
+        self.path, self.log, self.proc = str(path), log, None
+        self.ff = which_ffmpeg()
+        self.duration = self._probe()
+
+    def _probe(self) -> float:
+        r = subprocess.run([self.ff, "-hide_banner", "-nostdin", "-i", self.path], capture_output=True, text=True)
+        if "Audio:" not in r.stderr:          # no audio stream (or not a media file at all)
+            raise RuntimeError("This file can't be read as audio")
+        m = re.search(r"Duration: (\d+):(\d+):(\d+(?:\.\d+)?)", r.stderr)
+        if not m:
+            return 0.0
+        h, mi, s = m.groups()
+        return int(h) * 3600 + int(mi) * 60 + float(s)
+
+    def start(self):
+        self.proc = subprocess.Popen([self.ff, "-hide_banner", "-loglevel", "error", "-nostdin", "-i", self.path,
+                                      "-vn", "-ac", "1", "-ar", str(SR), "-f", "s16le", "pipe:1"],
+                                     stdout=subprocess.PIPE, stdin=subprocess.DEVNULL)
+
+    def read(self) -> bytes:
+        return self.proc.stdout.read(BLOCK_BYTES)
+
+    def stop(self):
+        if self.proc and self.proc.poll() is None:
+            self.proc.kill()
 
 
 class SoundcardCapture:
@@ -421,111 +513,193 @@ HALLUCINATIONS = re.compile(r"^(thank you\.?|thanks for watching!?|you\.?|\.+|su
 
 
 class Session:
+    """One recording or file job.
+
+    mode: "text" (transcribe), "text_audio" (transcribe + save .m4a), "audio" (save .m4a only).
+    file: transcribe an existing audio/video file instead of live capture.
+    """
+
     def __init__(self, source="both", engine="auto", lang=None, title="session",
                  outdir=OUTDIR_DEFAULT, on_line=print, on_status=None,
-                 min_chunk=4.0, max_chunk=15.0, noise=0.003):
+                 min_chunk=4.0, max_chunk=15.0, noise=0.003, mode="text", file=None):
         self.source, self.engine_kind, self.lang = source, engine, (lang or None)
         self.title, self.outdir = title or "session", Path(outdir)
         self.on_line = on_line
         self.on_status = on_status or (lambda s: print(f"[lisanote] {s}", file=sys.stderr, flush=True))
+        self.mode = mode if mode in ("text", "text_audio", "audio") else "text"
+        self.file = Path(file) if file else None
+        if self.file:
+            self.mode = "text"
+            min_chunk, max_chunk = 8.0, 30.0           # files: longer pieces = better context, fewer requests
+        self.transcribe = self.mode != "audio"
+        self.save_audio = self.mode != "text"
         self.min_chunk, self.max_chunk, self.noise = min_chunk, max_chunk, noise
         self._stop = threading.Event()
         self.level = 0.0
         self.busy = False
-        self.q: queue.Queue = queue.Queue()
-        self.path = None
+        self.progress = None                           # 0..1 for files
+        self.q: queue.Queue = queue.Queue(maxsize=12 if self.file else 0)
+        self.path = None                               # transcript .md
+        self.audio_path = None                         # recording .m4a
         self.tmp = Path(tempfile.mkdtemp(prefix="lisanote-"))
+        self._results, self._next, self._emit_lock = {}, 0, threading.Lock()
+        self._busy_n = 0
 
     def stop(self):
         self._stop.set()
 
     def _write(self, text):
-        with open(self.path, "a", encoding="utf-8") as f:
-            f.write(text)
+        if self.path:
+            with open(self.path, "a", encoding="utf-8") as f:
+                f.write(text)
+
+    def _stamp(self, t):
+        if self.file:                                  # position in the file
+            t = int(t)
+            return f"{t // 3600:02d}:{t // 60 % 60:02d}:{t % 60:02d}"
+        return dt.datetime.fromtimestamp(t).strftime("%H:%M:%S")
+
+    def _emit_ready(self):
+        with self._emit_lock:                          # keep lines in order even with parallel workers
+            while self._next in self._results:
+                t, text = self._results.pop(self._next)
+                self._next += 1
+                if text and not HALLUCINATIONS.match(text.strip()):
+                    stamp = self._stamp(t)
+                    self.on_line(f"[{stamp}] {text}")
+                    self._write(f"**[{stamp}]** {text}\n\n")
 
     def _worker(self):
         while True:
             item = self.q.get()
             if item is None:
+                self.q.put(None)                       # let sibling workers see it too
                 return
-            pcm, t_start = item
+            idx, pcm, t_start = item
+            self._busy_n += 1
             self.busy = True
-            wav = self.tmp / f"{int(t_start * 1000)}.wav"
+            wav = self.tmp / f"{idx}.wav"
             with wave.open(str(wav), "wb") as w:
                 w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR); w.writeframes(pcm)
+            text = ""
             try:
-                text = self.engine.transcribe(str(wav))
+                if not self._stop.is_set() or not self.file:
+                    text = self.engine.transcribe(str(wav))
             except Exception as e:
                 self.on_status(f"chunk failed: {str(e)[:160]}")
-                text = ""
             finally:
                 wav.unlink(missing_ok=True)
-                self.busy = False
-            if text and not HALLUCINATIONS.match(text.strip()):
-                stamp = dt.datetime.fromtimestamp(t_start).strftime("%H:%M:%S")
-                self.on_line(f"[{stamp}] {text}")
-                self._write(f"**[{stamp}]** {text}\n\n")
-            if self.q.qsize() > 3:
+                self._busy_n -= 1
+                self.busy = self._busy_n > 0
+            self._results[idx] = (t_start, text)
+            self._emit_ready()
+            if not self.file and self.q.qsize() > 3:
                 self.on_status(f"transcription is {self.q.qsize()} chunks behind")
 
     def run(self):
-        self.engine = make_engine(self.engine_kind, self.lang, self.on_status)
-        cap = SoundcardCapture(self.source, self.on_status) if IS_WIN else FFmpegCapture(self.source, self.on_status)
+        if self.transcribe:
+            self.engine = make_engine(self.engine_kind, self.lang, self.on_status)
+        else:
+            self.engine = None
+            self.on_status("using Audio only (no transcription)")
         self.outdir.mkdir(parents=True, exist_ok=True)
         start = dt.datetime.now()
-        slug = re.sub(r"[^\w-]+", "-", self.title).strip("-") or "session"
-        self.path = self.outdir / f"{start:%Y-%m-%d_%H%M}_{slug}.md"
-        self._write(f"# {self.title}\n\nStarted {start:%Y-%m-%d %H:%M} · source={self.source} · "
-                    f"engine={self.engine.label}\n\n")
-        (self.outdir / ".current").write_text(str(self.path))
+        title = self.title if not self.file or self.title not in ("", "session") else self.file.stem
+        slug = re.sub(r"[^\w-]+", "-", title).strip("-") or "session"
+        base = self.outdir / f"{start:%Y-%m-%d_%H%M}_{slug}"
+        if self.save_audio:
+            if IS_WIN:
+                raise RuntimeError("Saving audio isn't supported on Windows yet")
+            self.audio_path = base.with_suffix(".m4a")
+        if self.file:
+            cap = FileCapture(self.file, self.on_status)
+        elif IS_WIN:
+            cap = SoundcardCapture(self.source, self.on_status)
+        else:
+            cap = FFmpegCapture(self.source, self.on_status, record_to=self.audio_path)
+        if self.transcribe:
+            self.path = base.with_suffix(".md")
+            head = f"# {title}\n\n"
+            if self.file:
+                dur = getattr(cap, "duration", 0)
+                head += (f"Transcribed {start:%Y-%m-%d %H:%M} from file `{self.file.name}`"
+                         + (f" ({self._stamp(dur)})" if dur else "") + f" · engine={self.engine.label}\n\n")
+            else:
+                head += (f"Started {start:%Y-%m-%d %H:%M} · source={self.source} · engine={self.engine.label}"
+                         + (f" · audio: `{self.audio_path.name}`" if self.audio_path else "") + "\n\n")
+            self._write(head)
+        (self.outdir / ".current").write_text(str(self.path or self.audio_path))
         PIDFILE.write_text(str(os.getpid()))
-        self.on_status(f"listening… saving to {tilde(self.path)}")
-        worker = threading.Thread(target=self._worker, daemon=True)
-        worker.start()
+        what = [tilde(p) for p in (self.path, self.audio_path) if p]
+        self.on_status(("reading file… " if self.file else "listening… ") + "saving to " + " + ".join(what))
+        n_workers = 3 if (self.file and getattr(self.engine, "name", "") != "local") else 1
+        workers = [threading.Thread(target=self._worker, daemon=True) for _ in range(n_workers if self.transcribe else 0)]
+        for w in workers:
+            w.start()
         cap.start()
         buf, voiced, silent_run, t0 = bytearray(), 0, 0, time.time()
+        pos, idx = 0.0, 0                      # seconds read (files)
         per_s = 1 / BLOCK_S
+        dur_total = getattr(cap, "duration", 0) or 0
+
+        def flush():
+            nonlocal idx
+            if self.transcribe and voiced >= 0.5 * per_s:   # ≥0.5 s of sound; silence is never sent
+                self.q.put((idx, bytes(buf), t0))
+                idx += 1
         try:
             while not self._stop.is_set():
                 blk = cap.read()
                 if not blk:
-                    if self._stop.is_set():
-                        break
+                    if self._stop.is_set() or self.file:
+                        break                      # end of file
                     self.on_status("audio stream ended — restarting capture")
                     cap.stop(); time.sleep(1); cap.start()
                     continue
                 if not buf:
-                    t0 = time.time() - BLOCK_S
+                    t0 = pos if self.file else time.time() - BLOCK_S
+                if self.file:
+                    pos += len(blk) / (SR * 2)
+                    if dur_total:
+                        self.progress = min(1.0, pos / dur_total)
                 lvl = rms(blk)
                 self.level = lvl                    # read by the GUI for the live meter
+                if not self.transcribe:
+                    continue                        # audio only: ffmpeg writes the file, nothing to chunk
                 loud = lvl >= self.noise
                 buf += blk
                 voiced += loud
                 silent_run = 0 if loud else silent_run + 1
-                dur = len(buf) / (SR * 2)
+                d = len(buf) / (SR * 2)
                 # cut at a natural pause (≥0.75 s) once we have min_chunk, or force at max_chunk
-                if (dur >= self.min_chunk and silent_run >= 3) or dur >= self.max_chunk:
-                    if voiced >= 0.5 * per_s:     # ≥0.5 s of sound → worth sending; silence is never sent
-                        self.q.put((bytes(buf), t0))
+                if (d >= self.min_chunk and silent_run >= 3) or d >= self.max_chunk:
+                    flush()
                     buf, voiced, silent_run = bytearray(), 0, 0
-                elif not voiced and dur >= 2:      # rolling silence: drop it
+                elif not voiced and d >= 2:          # rolling silence: drop it
                     buf, silent_run = bytearray(), 0
         finally:
             cap.stop()
-            if voiced >= 0.5 * per_s:
-                self.q.put((bytes(buf), t0))
-            self.on_status("finishing last chunks…")
-            self.q.put(None)
-            worker.join(timeout=90)
-            self._write(f"\n_Ended {dt.datetime.now():%H:%M}_\n")
+            if not self._stop.is_set() or not self.file:
+                flush()
+            if workers:
+                self.on_status("finishing last chunks…")
+                self.q.put(None)
+                for w in workers:
+                    w.join(timeout=120)
+            if self.audio_path and hasattr(cap, "finalize"):
+                self.on_status("saving audio…")
+                self.audio_path = cap.finalize()
+            if self.path:
+                note = "_Stopped early_" if (self.file and self._stop.is_set()) else f"_Ended {dt.datetime.now():%H:%M}_"
+                self._write(f"\n{note}\n")
             for p in (self.outdir / ".current", PIDFILE):
                 try:
                     p.unlink()
                 except OSError:
                     pass
             shutil.rmtree(self.tmp, ignore_errors=True)
-            self.on_status(f"saved {tilde(self.path)}")
-        return self.path
+            self.on_status("saved " + " + ".join(tilde(p) for p in (self.path, self.audio_path) if p))
+        return self.path or self.audio_path
 
 
 def stop_running():
@@ -548,6 +722,9 @@ def main():
     ap.add_argument("--title", default="session")
     ap.add_argument("--outdir", default=str(OUTDIR_DEFAULT))
     ap.add_argument("--max-chunk", type=float, default=15.0)
+    ap.add_argument("--save-audio", action="store_true", help="also save the audio as one .m4a (separate tracks)")
+    ap.add_argument("--audio-only", action="store_true", help="save the audio without transcribing")
+    ap.add_argument("--file", metavar="PATH", help="transcribe an existing audio/video file instead of live audio")
     ap.add_argument("--stop", action="store_true", help="stop a running lisanote")
     ap.add_argument("--version", action="version", version=f"lisanote {__version__}")
     a = ap.parse_args()
@@ -563,7 +740,9 @@ def main():
         save_config(cfg)
         ok, msg = test_provider(pid)
         return print(("✓ " if ok else "✗ ") + msg)
-    s = Session(a.source, a.engine, a.lang, a.title, a.outdir, max_chunk=a.max_chunk)
+    mode = "audio" if a.audio_only else "text_audio" if a.save_audio else "text"
+    kw = {} if a.file else {"max_chunk": a.max_chunk}
+    s = Session(a.source, a.engine, a.lang, a.title, a.outdir, mode=mode, file=a.file, **kw)
     signal.signal(signal.SIGINT, lambda *_: s.stop())
     signal.signal(signal.SIGTERM, lambda *_: s.stop())
     s.run()

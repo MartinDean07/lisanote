@@ -17,7 +17,7 @@ Flags: --hidden  start in the tray without opening the window (used at login).
 """
 from __future__ import annotations
 
-import json, os, queue, secrets, shutil, subprocess, sys, threading, time, urllib.request
+import json, os, queue, re, secrets, shutil, subprocess, sys, tempfile, threading, time, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -144,6 +144,8 @@ class Hub:
         self.file = None
         self.engine = ""
         self.last_client = time.time()
+        self.audio = None
+        self.job, self.mode = "live", "text"
         self.show_seq = 0      # bumped when a second launch asks the running app to show its window
         self.tray = False      # True once a tray icon is running -> closing the window keeps the app alive
         threading.Thread(target=self._ticker, daemon=True).start()
@@ -159,7 +161,8 @@ class Hub:
         with self.lock:
             self.subs.append(q)
         q.put({"type": "snapshot", "state": self.state, "started": self.started, "lines": self.lines,
-               "file": str(self.file) if self.file else None, "engine": self.engine})
+               "file": str(self.file) if self.file else None, "engine": self.engine, "job": self.job,
+               "mode": self.mode, "audio": str(self.audio) if self.audio else None})
         return q
 
     def unsubscribe(self, q):
@@ -175,25 +178,31 @@ class Hub:
             if s and self.state == "recording":
                 self.publish({"type": "level", "level": round(s.level, 4),
                               "pending": int(s.q.qsize() + (1 if s.busy else 0)),
-                              "file": str(s.path) if s.path else None})
+                              "progress": s.progress, "file": str(s.path) if s.path else None,
+                              "audio": str(s.audio_path) if s.audio_path else None})
 
     # session control --------------------------------------------------
     def _set_state(self, st):
         self.state = st
-        self.publish({"type": "state", "state": st, "started": self.started,
-                      "file": str(self.file) if self.file else None})
+        self.publish({"type": "state", "state": st, "started": self.started, "job": self.job, "mode": self.mode,
+                      "file": str(self.file) if self.file else None,
+                      "audio": str(self.audio) if self.audio else None})
 
     def snapshot_state(self):
         return {"state": self.state, "started": self.started, "show_seq": self.show_seq,
                 "autostart": autostart_enabled(), "tray": self.tray,
                 "file": str(self.file) if self.file else None, "lines": len(self.lines)}
 
-    def start(self, source="both", lang="", title="session"):
+    def start(self, source="both", lang="", title="session", mode="text", upload=None, upload_name=None):
+        """mode: text | text_audio | audio. upload: path of an uploaded file to transcribe instead."""
         if self.session:
             return
-        save_settings({"source": source, "lang": lang, "title": title})
-        self.lines, self.file, self.engine = [], None, ""
+        if not upload:
+            save_settings({"source": source, "lang": lang, "title": title})   # mode is never remembered (privacy)
+        self.lines, self.file, self.audio, self.engine = [], None, None, ""
+        self.job, self.mode = ("file", "text") if upload else ("live", mode)
         self.started = time.time()
+        self.publish({"type": "reset"})               # every open window starts from a clean feed
 
         def on_line(s):
             ts, _, body = s.partition("] ")
@@ -208,16 +217,22 @@ class Hub:
             elif s.startswith(("chunk failed", "No ", "no transcription", "ffmpeg")):
                 self.publish({"type": "error", "text": s[:180]})
 
+        if upload:
+            title = Path(upload_name or "file").stem
         self.session = ls.Session(source if source in ("both", "system", "mic") else "both", "auto",
-                                  lang or None, title or "session", on_line=on_line, on_status=on_status)
+                                  lang or None, title or "session", on_line=on_line, on_status=on_status,
+                                  mode=self.mode, file=upload)
         self._set_state("recording")
 
         def run():
             try:
-                self.file = self.session.run()
+                self.session.run()
+                self.file, self.audio = self.session.path, self.session.audio_path
             except Exception as e:
                 self.publish({"type": "error", "text": str(e)[:200]})
             finally:
+                if upload:
+                    shutil.rmtree(Path(upload).parent, ignore_errors=True)   # the uploaded copy
                 self.session = None
                 self.started = None
                 self._set_state("idle")
@@ -227,7 +242,7 @@ class Hub:
 
     def stop(self, wait=False):
         if self.session and self.state == "recording":
-            self.file = self.session.path
+            self.file, self.audio = self.session.path, self.session.audio_path
             self._set_state("stopping")
             self.session.stop()
         if wait and self.thread:
@@ -286,6 +301,8 @@ def make_handler(hub: Hub, token: str):
         def do_POST(self):
             if not self._ok_token():
                 return self._send(403, b"forbidden")
+            if urlparse(self.path).path == "/upload":
+                return self._upload()
             n = int(self.headers.get("Content-Length") or 0)
             try:
                 body = json.loads(self.rfile.read(n) or b"{}")
@@ -294,7 +311,8 @@ def make_handler(hub: Hub, token: str):
             path = urlparse(self.path).path
             if path == "/start":
                 s = {**load_settings(), **{k: v for k, v in body.items() if k in DEFAULT_SETTINGS}}
-                hub.start(s["source"], s["lang"], s["title"] or "session")
+                mode = body.get("mode", "text") if body.get("mode") in ("text", "text_audio", "audio") else "text"
+                hub.start(s["source"], s["lang"], s["title"] or "session", mode=mode)
             elif path == "/toggle":
                 if hub.state == "idle":
                     s = load_settings()
@@ -322,11 +340,39 @@ def make_handler(hub: Hub, token: str):
             elif path == "/stop":
                 hub.stop()
             elif path == "/open":
-                target = str(hub.file) if body.get("file") and hub.file else str(ls.OUTDIR_DEFAULT)
+                pick = {"file": hub.file, "audio": hub.audio}.get(body.get("what") or ("file" if body.get("file") else ""))
+                target = str(pick) if pick else str(ls.OUTDIR_DEFAULT)
                 os.makedirs(ls.OUTDIR_DEFAULT, exist_ok=True)
                 open_path(target)
             elif path == "/quit":
                 threading.Thread(target=lambda: (hub.stop(wait=True), os._exit(0)), daemon=True).start()
+            return self._send(204)
+
+        def _upload(self):
+            """Raw request body = the file. Name comes from ?name=. Streamed to a private temp dir."""
+            if hub.session:
+                return self._send(409, b"busy")
+            n = int(self.headers.get("Content-Length") or 0)
+            if n <= 0 or n > 4 * 1024 ** 3:
+                return self._send(413, b"file too large (max 4 GB)")
+            name = Path(parse_qs(urlparse(self.path).query).get("name", ["audio"])[0]).name or "audio"
+            d = Path(tempfile.mkdtemp(prefix="lisanote-upload-"))
+            dst = d / re.sub(r"[^\w.\- ]+", "_", name)
+            with open(dst, "wb") as f:
+                left = n
+                while left:
+                    chunk = self.rfile.read(min(1 << 20, left))
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    left -= len(chunk)
+            try:
+                ls.FileCapture(dst, lambda *_: None)          # fails fast on non-audio files
+            except Exception as e:
+                shutil.rmtree(d, ignore_errors=True)
+                return self._send(415, str(e).encode())
+            body = json.loads(parse_qs(urlparse(self.path).query).get("opts", ["{}"])[0] or "{}")
+            hub.start(lang=body.get("lang", ""), upload=str(dst), upload_name=name)
             return self._send(204)
 
     return H

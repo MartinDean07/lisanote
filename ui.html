@@ -102,6 +102,22 @@ kbd{font:11px var(--font-latin);padding:1px 5px;border:1px solid var(--line);bor
 .toast.show{opacity:1;transform:none}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
 
+/* ── recording mode / upload ── */
+.seg button.rec-on[aria-pressed=true]{color:var(--rec)}
+.legal{display:none;margin:-4px 20px 12px;font-size:12px;color:var(--warn);align-items:center;gap:6px}
+.legal svg{width:14px;height:14px;flex:none}
+body.saving-audio .legal{display:flex}
+.pill .tag{display:none;font-size:11px;color:var(--rec);border-inline-start:1px solid var(--line);padding-inline-start:8px;margin-inline-start:2px}
+body.saving-audio.recording .pill .tag{display:inline}
+.progress{display:none;height:3px;background:var(--line);margin:0 20px 10px;border-radius:3px;overflow:hidden}
+.progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+body.filejob.recording .progress, body.filejob.stopping .progress{display:block}
+.drop{position:fixed;inset:10px;border:2px dashed var(--accent);border-radius:18px;background:color-mix(in srgb,var(--bg) 88%,transparent);
+      display:none;place-content:center;text-align:center;gap:8px;z-index:6;color:var(--text);pointer-events:none}
+.drop svg{width:44px;height:44px;margin:0 auto;color:var(--accent)}
+body.dragging .drop{display:grid}
+.foot small a + a{margin-inline-start:10px}
+
 /* ── settings sheet ── */
 .sheet{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;transform:translateY(100%);
        transition:transform .28s cubic-bezier(.3,.7,.4,1);z-index:5;user-select:none}
@@ -140,7 +156,7 @@ kbd{font:11px var(--font-latin);padding:1px 5px;border:1px solid var(--line);bor
 </head>
 <body>
 <header>
-  <span class="pill" id="pill"><span class="dot"></span><span id="pillText">Ready</span>
+  <span class="pill" id="pill"><span class="dot"></span><span id="pillText">Ready</span><span class="tag">● Saving audio</span>
     <span class="meter" id="meter"><i></i><i></i><i></i><i></i><i></i></span></span>
   <span class="spacer"></span>
   <button class="icon" id="dirBtn" title="Text direction">
@@ -150,6 +166,9 @@ kbd{font:11px var(--font-latin);padding:1px 5px;border:1px solid var(--line);bor
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8"/></svg></button>
   <button class="icon" id="folderBtn" title="Open transcripts folder">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5A2.5 2.5 0 0 1 6 5h3.6l2 2.2H18a2.5 2.5 0 0 1 2.5 2.5v6.8A2.5 2.5 0 0 1 18 19H6a2.5 2.5 0 0 1-2.5-2.5z"/></svg></button>
+  <button class="icon" id="upBtn" title="Transcribe an audio file (or drop it here)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></button>
+  <input type="file" id="fileIn" hidden accept="audio/*,video/*,.m4a,.mp3,.wav,.ogg,.opus,.aac,.flac,.amr,.3gp,.webm,.mp4,.mkv,.mov">
   <button class="icon" id="setBtn" title="Transcription provider &amp; API key">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
   <button class="icon" id="pinBtn" title="Keep on top" hidden>
@@ -172,7 +191,15 @@ kbd{font:11px var(--font-latin);padding:1px 5px;border:1px solid var(--line);bor
     <option value="sv">Svenska</option>
     <option value="tr">Türkçe</option>
   </select></label>
+  <div class="seg" id="mode" role="group" aria-label="What to keep">
+    <button data-v="text" title="Transcribe only (audio is not kept)">Text</button>
+    <button data-v="text_audio" class="rec-on" title="Transcribe and save the audio as one .m4a">Text + audio</button>
+    <button data-v="audio" class="rec-on" title="Save the audio only, no transcription (no API cost)">Audio only</button>
+  </div>
 </div>
+<div class="legal" id="legal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg>
+  Audio will be saved. Tell participants that you are recording.</div>
+<div class="progress" id="progress"><i></i></div>
 
 <main id="feed">
   <div class="empty" id="empty">
@@ -187,6 +214,8 @@ kbd{font:11px var(--font-latin);padding:1px 5px;border:1px solid var(--line);bor
   <div class="foot"><b id="footTitle">Start transcribing</b><small id="footSub">Press <kbd>Space</kbd> to start or stop</small></div>
 </footer>
 <div class="toast" id="toast"></div>
+<div class="drop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+  <b>Drop an audio file to transcribe it</b><small style="color:var(--muted)">m4a, mp3, wav, ogg, opus, amr, video files…</small></div>
 
 <section class="sheet" id="sheet" aria-label="Settings">
   <header><h2>Transcription</h2><span class="spacer"></span>
@@ -206,6 +235,8 @@ const $ = id => document.getElementById(id);
 const api = (p, b = {}) => fetch(p + '?t=' + T, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(b)}).catch(() => {});
 let state = 'idle', started = null, lines = [], file = null, engine = '', lastErr = '';
 let source = localStorage.source || 'both';
+let mode = 'text';                 // never remembered: saving audio is always off when the app starts
+let job = 'live', audio = null, progress = null, jobMode = 'text';
 let dirMode = localStorage.dirMode || 'auto';           // auto | rtl | ltr
 $('lang').value = localStorage.lang || '';
 $('title').value = localStorage.title || 'Meeting';
@@ -224,6 +255,11 @@ function applyDirMode(){
 $('dirBtn').onclick = () => { dirMode = {auto:'rtl', rtl:'ltr', ltr:'auto'}[dirMode]; localStorage.dirMode = dirMode; applyDirMode();
   toast({auto:'Direction: automatic', rtl:'Direction: right-to-left', ltr:'Direction: left-to-right'}[dirMode]); };
 
+function renderMode(){
+  const m = state !== 'idle' && job === 'live' ? jobMode : mode;     // show what is actually running
+  document.querySelectorAll('#mode button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === m)); }
+document.querySelectorAll('#mode button').forEach(b => b.onclick = () => { mode = b.dataset.v; renderMode(); render();
+  if (mode !== 'text') toast(mode === 'audio' ? 'Audio only — nothing is transcribed' : 'Audio will be saved too'); });
 function renderSource(){ document.querySelectorAll('#source button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === source)); }
 document.querySelectorAll('#source button').forEach(b => b.onclick = () => { source = b.dataset.v; localStorage.source = source; renderSource(); });
 $('lang').onchange = e => localStorage.lang = e.target.value;
@@ -241,20 +277,32 @@ function clearFeed(){ lines = []; document.querySelectorAll('.line').forEach(e =
 
 const fmt = s => { s = Math.max(0, Math.floor(s)); const h = Math.floor(s/3600), m = Math.floor(s/60)%60, x = s%60;
   return (h ? h + ':' + String(m).padStart(2,'0') : m) + ':' + String(x).padStart(2,'0'); };
+const base = p => p ? p.split(/[\\/]/).pop() : '';
 function render(){
-  document.body.className = state + (pending && state !== 'idle' ? ' pending' : '');
+  const active = state !== 'idle';
+  const m = active ? jobMode : mode;
+  const dragging = document.body.classList.contains('dragging');
+  document.body.className = [state, dragging ? 'dragging' : '', pending && active ? 'pending' : '', m !== 'text' && job !== 'file' ? 'saving-audio' : '',
+                             job === 'file' && active ? 'filejob' : ''].filter(Boolean).join(' ');
   const el = started ? fmt(Date.now()/1000 - started) : '';
-  $('pillText').textContent = state === 'recording' ? (pending ? 'Transcribing · ' : 'Live · ') + el
-                           : state === 'stopping' ? 'Finishing…' : 'Ready';
-  $('rec').setAttribute('aria-label', state === 'idle' ? 'Start recording' : 'Stop recording');
-  $('footTitle').textContent = state === 'recording' ? 'Listening' : state === 'stopping' ? 'Saving the last sentences…'
-                            : (file ? 'Saved' : 'Start transcribing');
+  const pct = progress != null ? Math.round(progress * 100) + '%' : '';
+  $('pillText').textContent = state === 'recording'
+      ? (job === 'file' ? 'File · ' + pct : (m === 'audio' ? 'Recording · ' : pending ? 'Transcribing · ' : 'Live · ') + el)
+      : state === 'stopping' ? 'Finishing…' : 'Ready';
+  renderMode();
+  $('progress').firstElementChild.style.width = (progress || 0) * 100 + '%';
+  $('rec').setAttribute('aria-label', !active ? 'Start recording' : 'Stop');
+  $('footTitle').textContent = state === 'recording'
+      ? (job === 'file' ? 'Transcribing file…' : m === 'audio' ? 'Recording audio' : 'Listening')
+      : state === 'stopping' ? (m === 'audio' ? 'Saving the audio…' : 'Saving the last sentences…')
+      : ((file || audio) ? 'Saved' : m === 'audio' ? 'Start recording' : 'Start transcribing');
   const sub = $('footSub'); sub.className = '';
   if (lastErr){ sub.textContent = lastErr; sub.className = 'warn'; }
-  else if (state !== 'idle'){ sub.textContent = [engine, file && file.split(/[\\/]/).pop()].filter(Boolean).join('  ·  '); }
-  else if (file){ sub.innerHTML = ''; const a = document.createElement('a'); a.textContent = file.split(/[\\/]/).pop();
-    a.onclick = () => api('/open', {file: true}); sub.append(a); }
-  else sub.innerHTML = 'Press <kbd>Space</kbd> to start or stop';
+  else if (active){ sub.textContent = [engine, base(file), base(audio)].filter(Boolean).join('  ·  '); }
+  else if (file || audio){ sub.innerHTML = '';
+    for (const [p, what, label] of [[file, 'file', 'Open transcript'], [audio, 'audio', 'Play audio']]) if (p){
+      const a = document.createElement('a'); a.textContent = label; a.title = base(p); a.onclick = () => api('/open', {what}); sub.append(a); } }
+  else sub.innerHTML = 'Press <kbd>Space</kbd> to start or stop · drop a file to transcribe it';
 }
 let pending = 0;
 setInterval(() => { if (state === 'recording') render(); }, 1000);
@@ -265,9 +313,9 @@ function meter(level){ const v = Math.min(1, Math.sqrt(level / 0.12));
 
 function toggle(){
   if (state === 'idle'){
-    if (needsSetup()){ openSettings(); return toast('Add an API key first'); }
-    clearFeed(); file = null; lastErr = '';
-    api('/start', {source, lang: $('lang').value, title: $('title').value.trim() || 'session'});
+    if (mode !== 'audio' && needsSetup()){ openSettings(); return toast('Add an API key first'); }
+    clearFeed(); file = null; audio = null; lastErr = ''; progress = null;
+    api('/start', {source, mode, lang: $('lang').value, title: $('title').value.trim() || 'session'});
   } else if (state === 'recording') api('/stop');
 }
 $('rec').onclick = toggle;
@@ -280,6 +328,28 @@ $('copyBtn').onclick = async () => {
   if (!lines.length) return toast('Nothing to copy yet');
   const txt = lines.map(l => `[${l.ts}] ${l.text}`).join('\n');
   try { await navigator.clipboard.writeText(txt); toast('Transcript copied'); } catch { toast('Copy failed'); } };
+/* ── transcribe an audio file ── */
+async function uploadFile(f){
+  if (!f) return;
+  if (state !== 'idle') return toast('Stop the current session first');
+  if (needsSetup()){ openSettings(); return toast('Add an API key first'); }
+  clearFeed(); file = null; audio = null; lastErr = ''; job = 'file'; jobMode = 'text'; progress = 0;
+  toast('Uploading ' + f.name + '…');
+  const opts = encodeURIComponent(JSON.stringify({lang: $('lang').value}));
+  try {
+    const r = await fetch('/upload?t=' + T + '&name=' + encodeURIComponent(f.name) + '&opts=' + opts, {method: 'POST', body: f});
+    if (!r.ok){ lastErr = r.status === 415 ? 'This file can’t be read as audio' : (await r.text()) || 'Upload failed'; render(); }
+  } catch { lastErr = 'Upload failed'; render(); }
+}
+$('upBtn').onclick = () => $('fileIn').click();
+$('fileIn').onchange = e => { uploadFile(e.target.files[0]); e.target.value = ''; };
+let dragN = 0;
+document.addEventListener('dragenter', e => { if ([...e.dataTransfer.types].includes('Files')){ dragN++; document.body.classList.add('dragging'); } });
+document.addEventListener('dragleave', () => { if (--dragN <= 0){ dragN = 0; document.body.classList.remove('dragging'); } });
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => { e.preventDefault(); dragN = 0; document.body.classList.remove('dragging');
+  uploadFile(e.dataTransfer.files[0]); });
+
 /* keep-on-top: only available inside the native shells (GTK on Linux, pywebview on macOS/Windows) */
 const gtk = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.lisanote;
 let pinned = true;
@@ -292,12 +362,16 @@ let tt; function toast(s){ const t = $('toast'); t.textContent = s; t.classList.
 function handle(m){
   switch (m.type){
     case 'snapshot':
-      state = m.state; started = m.started; file = m.file; engine = m.engine || '';
+      state = m.state; started = m.started; file = m.file; engine = m.engine || ''; audio = m.audio;
+      job = m.job || 'live'; jobMode = m.mode || 'text';
       clearFeed(); m.lines.forEach(addLine);
       break;
-    case 'state': state = m.state; started = m.started; if (m.file) file = m.file; if (state === 'idle') pending = 0; break;
+    case 'state': state = m.state; started = m.started; if (m.file) file = m.file; if (m.audio) audio = m.audio;
+      if (m.job) job = m.job; if (m.mode) jobMode = m.mode; if (state === 'idle'){ pending = 0; progress = null; } break;
     case 'line': addLine(m); break;
-    case 'level': meter(m.level); pending = m.pending; if (m.file) file = m.file; break;
+    case 'reset': clearFeed(); file = null; audio = null; lastErr = ''; progress = null; break;
+    case 'level': meter(m.level); pending = m.pending; if (m.file) file = m.file; if (m.audio) audio = m.audio;
+      progress = m.progress; break;
     case 'engine': engine = m.text; break;
     case 'error': lastErr = m.text; break;
     case 'ping': return;
@@ -388,7 +462,7 @@ $('setBtn').onclick = openSettings;
 $('closeSet').onclick = () => $('sheet').classList.remove('open');
 document.addEventListener('keydown', e => { if (e.key === 'Escape') $('sheet').classList.remove('open'); }, true);
 loadCfg().then(() => { if (needsSetup()) openSettings(); });
-renderSource(); applyDirMode(); render(); connect();
+renderSource(); renderMode(); applyDirMode(); render(); connect();
 </script>
 </body>
 </html>

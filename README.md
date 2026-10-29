@@ -98,6 +98,12 @@ Keys can also come from environment variables: `OPENAI_API_KEY`, `GROQ_API_KEY`,
 - **Record**: big round button or <kbd>Space</kbd>. Choose *Hear + mic*, *Hear only* or *Mic*, and a language (or auto).
 - **Tray / menu bar**: closing the window keeps Lisanote running; the icon turns red while recording.
   Menu: Show · Start/Stop recording · Open transcripts folder · Start at login · Quit.
+- **Save audio (off by default)**: choose *Text*, *Text + audio* or *Audio only* (no transcription, no API cost).
+  The recording is **one `.m4a` file** next to the transcript with separate tracks:
+  1 = everything mixed (what players play), 2 = what you hear, 3 = your microphone. It's written continuously,
+  so a crash keeps what was recorded. Tell participants when you record. Not yet available on Windows.
+- **Transcribe a file**: press the upload button or drop any audio/video file on the window (phone voice memos:
+  m4a, mp3, wav, ogg/opus, amr, 3gp, mp4…). Timestamps are positions in the file.
 - **Transcripts**: `~/Transcripts/<date>_<time>_<title>.md`, written live, one timestamped line per sentence.
 
 ### Command line
@@ -106,6 +112,9 @@ lisanote                               # what you hear + mic, provider from Sett
 lisanote --source system --lang ar     # only other apps, Arabic
 lisanote --engine groq --title "Lecture"
 lisanote --set-key openai sk-...       # save a key without the UI
+lisanote --save-audio                    # transcribe + keep the audio (.m4a, separate tracks)
+lisanote --audio-only --title "Hearing"  # record only, no transcription
+lisanote --file voice-memo.m4a           # transcribe an existing file
 lisanote --stop
 ```
 
