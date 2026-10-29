@@ -169,7 +169,7 @@ body.dragging .drop{display:grid}
 </head>
 <body>
 <header>
-  <span class="pill" id="pill"><span class="dot"></span><span id="pillText">Ready</span><span class="tag" title="Audio is being saved">● REC</span>
+  <span class="pill" id="pill"><span class="dot"></span><span id="pillText">Ready</span><span class="tag" title="Recording the sound">● REC</span>
     <span class="meter" id="meter"><i></i><i></i><i></i><i></i><i></i></span></span>
   <span class="spacer"></span>
   <button class="icon" id="dirBtn" title="Text direction">
@@ -202,7 +202,7 @@ body.dragging .drop{display:grid}
   <div class="opt-row">
     <span class="opt-label">Save</span>
     <button class="chip" id="chipText" aria-pressed="true" title="Write a text transcript"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h14M5 11h14M5 16h9"/></svg>Transcript</button>
-    <button class="chip chip-rec" id="chipAudio" aria-pressed="false" title="Also keep the sound as an .m4a file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>Audio</button>
+    <button class="chip chip-rec" id="chipAudio" aria-pressed="false" title="Record the sound and save it as an .m4a file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>Record</button>
   </div>
   <div class="opt-row">
     <span class="opt-label">Language</span>
@@ -217,7 +217,7 @@ body.dragging .drop{display:grid}
   </div>
 </div>
 <div class="legal" id="legal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg>
-  Audio will be saved. Tell participants that you are recording.</div>
+  Recording is on. Tell participants that you are recording.</div>
 <div class="progress" id="progress"><i></i></div>
 
 <main id="feed">
@@ -280,9 +280,9 @@ function renderMode(){
   $('chipAudio').setAttribute('aria-pressed', m !== 'text');
   $('langWrap').classList.toggle('off', m === 'audio'); }
 function setMode(text, aud){
-  if (!text && !aud) return toast('Keep at least the transcript or the audio');
+  if (!text && !aud) return toast('Choose Transcript, Record, or both');
   mode = text && aud ? 'text_audio' : aud ? 'audio' : 'text'; renderMode(); render();
-  if (aud) toast(text ? 'Audio will be saved too' : 'Audio only — nothing is transcribed'); }
+  if (aud) toast(text ? 'The sound will be recorded too' : 'Record only — nothing is transcribed'); }
 $('chipText').onclick = () => setMode(mode === 'audio', mode !== 'text');
 $('chipAudio').onclick = () => setMode(mode !== 'audio', mode === 'text');
 function renderSource(){ document.querySelectorAll('#source button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === source)); }
@@ -318,14 +318,14 @@ function render(){
   $('progress').firstElementChild.style.width = (progress || 0) * 100 + '%';
   $('rec').setAttribute('aria-label', !active ? 'Start recording' : 'Stop');
   $('footTitle').textContent = state === 'recording'
-      ? (job === 'file' ? 'Transcribing file…' : m === 'audio' ? 'Recording audio' : 'Listening')
-      : state === 'stopping' ? (m === 'audio' ? 'Saving the audio…' : 'Saving the last sentences…')
+      ? (job === 'file' ? 'Transcribing file…' : m === 'audio' ? 'Recording' : 'Listening')
+      : state === 'stopping' ? (m === 'audio' ? 'Saving the recording…' : 'Saving the last sentences…')
       : ((file || audio) ? 'Saved' : m === 'audio' ? 'Start recording' : m === 'text_audio' ? 'Start transcribing + recording' : 'Start transcribing');
   const sub = $('footSub'); sub.className = '';
   if (lastErr){ sub.textContent = lastErr; sub.className = 'warn'; }
   else if (active){ sub.textContent = [engine, base(file), base(audio)].filter(Boolean).join('  ·  '); }
   else if (file || audio){ sub.innerHTML = '';
-    for (const [p, what, label] of [[file, 'file', 'Open transcript'], [audio, 'audio', 'Play audio']]) if (p){
+    for (const [p, what, label] of [[file, 'file', 'Open transcript'], [audio, 'audio', 'Play recording']]) if (p){
       const a = document.createElement('a'); a.textContent = label; a.title = base(p); a.onclick = () => api('/open', {what}); sub.append(a); } }
   else sub.innerHTML = 'Press <kbd>Space</kbd> to start or stop · drop a file to transcribe it';
 }
