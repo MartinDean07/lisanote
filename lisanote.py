@@ -25,7 +25,7 @@ import argparse, array, datetime as dt, json, math, os, queue, re, shutil, signa
 import subprocess, sys, tempfile, threading, time, urllib.error, urllib.request, uuid, wave
 from pathlib import Path
 
-__version__ = "1.2.0"
+__version__ = "2.0.0"
 FROZEN = getattr(sys, "frozen", False)   # True inside the packaged .exe / .app
 SR = 16000
 BLOCK_S = 0.25

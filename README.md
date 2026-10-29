@@ -16,6 +16,8 @@ Bring your own OpenAI / Groq / Mistral key, use Hermes Agent, or run fully offli
 <p align="center"><sub>Left: a live session — Arabic lines flow right-to-left, English and Norwegian left-to-right.
 Right: pick a provider and paste your key.</sub></p>
 
+<p align="center">🆕 <b>Lisanote 2.0</b>: record the sound and transcribe audio files — <a href="docs/WHATS-NEW.md">see what's new</a></p>
+
 ---
 
 Live transcription of **everything you hear and say** — meetings (Zoom, Meet, Teams), videos,
@@ -125,6 +127,17 @@ is a small local web UI shown in a native web view (GTK/WebKit on Linux, pywebvi
 or a Chrome/Edge app window as fallback).
 
 Delay is roughly 5–20 s behind live speech, because each piece waits for a pause.
+
+## Disclaimer
+
+Lisanote is a tool. **You alone are responsible for how you use it.** Recording or transcribing
+conversations, meetings, calls or media may be restricted by law where you live (for example consent,
+privacy/GDPR, wiretapping or copyright rules). It is your responsibility to know and follow those rules and
+to inform or get consent from the people involved. The author and contributors accept **no responsibility or
+liability** for any use or misuse of this software, for recordings or transcripts made with it, or for any
+damage, loss or legal consequences arising from its use. Transcriptions are produced by third-party or local
+AI models and may contain errors; do not rely on them as an exact record without checking.
+The software is provided "as is", without warranty of any kind (see [LICENSE](LICENSE)).
 
 ## License
 MIT with an attribution requirement — free for personal and commercial use. If you use Lisanote
